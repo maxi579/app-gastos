@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import FormularioMedioPago from '../components/FormularioMedioPago';
 import { supabase } from '../lib/supabase';
 import type { MedioPago } from '../lib/tipos';
@@ -8,6 +8,21 @@ import type { MedioPago } from '../lib/tipos';
 export default function Ajustes() {
   const [medios, setMedios] = useState<MedioPago[]>([]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
+    const [sueldoTexto, setSueldoTexto] = useState('');
+
+  useEffect(() => {
+    supabase.from('perfiles').select('sueldo').single().then(({ data }) => {
+      if (data?.sueldo) setSueldoTexto(String(Number(data.sueldo)));
+    });
+  }, []);
+
+  async function guardarSueldo() {
+    const sueldo = Number(sueldoTexto.replace(/\./g, '').replace(',', '.'));
+    if (!(sueldo > 0)) return Alert.alert('Sueldo', 'Ingresá un monto válido.');
+    const { data: usuario } = await supabase.auth.getUser();
+    const { error } = await supabase.from('perfiles').update({ sueldo }).eq('id', usuario.user!.id);
+    Alert.alert('Sueldo', error ? error.message : 'Guardado ✓');
+  }
 
   const cargarMedios = useCallback(async () => {
     const { data, error } = await supabase.from('tarjetas').select('*').order('creado_en');
@@ -40,6 +55,20 @@ export default function Ajustes() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
+            <Text style={styles.seccion}>Tu sueldo mensual</Text>
+      <View style={styles.filaSueldo}>
+        <TextInput
+          style={styles.inputSueldo}
+          value={sueldoTexto}
+          onChangeText={setSueldoTexto}
+          placeholder="Ej: 600000"
+          placeholderTextColor="#64748b"
+          keyboardType="number-pad"
+        />
+        <Pressable style={styles.botonSueldo} onPress={guardarSueldo}>
+          <Text style={styles.textoBotonSueldo}>Guardar</Text>
+        </Pressable>
+      </View>
       <Text style={styles.seccion}>Mis medios de pago</Text>
 
       {medios.length === 0 && !mostrarFormulario && (
@@ -99,4 +128,8 @@ const styles = StyleSheet.create({
   textoAgregar: { color: '#22c55e', fontWeight: '600', fontSize: 16 },
   botonSalir: { marginTop: 40, alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#ef4444' },
   textoSalir: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
+    filaSueldo: { flexDirection: 'row', gap: 10, marginBottom: 28 },
+  inputSueldo: { flex: 1, backgroundColor: '#1e293b', color: '#f8fafc', borderRadius: 14, padding: 14, fontSize: 16, borderWidth: 1, borderColor: '#334155' },
+  botonSueldo: { backgroundColor: '#22c55e', borderRadius: 14, paddingHorizontal: 20, justifyContent: 'center' },
+  textoBotonSueldo: { color: '#0f172a', fontWeight: 'bold', fontSize: 16 },
 });
