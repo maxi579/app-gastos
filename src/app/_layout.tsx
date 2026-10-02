@@ -1,7 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { Session } from '@supabase/supabase-js';
 import { Tabs } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, View } from 'react-native';
+import PantallaLogin from '../components/PantallaLogin';
+import { supabase } from '../lib/supabase';
 
 export default function Layout() {
+  const [sesion, setSesion] = useState<Session | null>(null);
+  const [cargando, setCargando] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      setSesion(data.session);
+      setCargando(false);
+    });
+    const { data } = supabase.auth.onAuthStateChange((_evento, nuevaSesion) => setSesion(nuevaSesion));
+    return () => data.subscription.unsubscribe();
+  }, []);
+
+  if (cargando) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0f172a', justifyContent: 'center' }}>
+        <ActivityIndicator color="#22c55e" size="large" />
+      </View>
+    );
+  }
+
+  if (!sesion) return <PantallaLogin />;
+
   return (
     <Tabs
       screenOptions={{

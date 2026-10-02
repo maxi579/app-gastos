@@ -3,13 +3,13 @@ import Proximamente from '../components/Proximamente';
 import { supabase } from '../lib/supabase';
 
 export default function Inicio() {
-  const [estado, setEstado] = useState('Conectando con Supabase...');
+  const [saludo, setSaludo] = useState('Cargando...');
 
   useEffect(() => {
-    supabase.from('gastos').select('id').then(({ error }) => {
-      setEstado(error ? `Error: ${error.message}` : 'Conectado a Supabase ✓');
+    supabase.from('perfiles').select('nombre').single().then(({ data, error }) => {
+      setSaludo(error ? `Error: ${error.message}` : `Hola, ${data.nombre ?? 'che'} 👋`);
     });
   }, []);
 
-  return <Proximamente titulo="Inicio" descripcion={estado} />;
+  return <Proximamente titulo={saludo} descripcion="Acá vas a ver cuánto te queda disponible este mes." />;
 }
