@@ -68,3 +68,7 @@ $$;
 create trigger al_crear_usuario
   after insert on auth.users
   for each row execute function public.crear_perfil_nuevo_usuario();
+  
+  alter table tarjetas
+  add column tipo text not null default 'credito'
+  check (tipo in ('credito', 'debito'));
