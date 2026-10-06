@@ -1,0 +1,236 @@
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import {
+    calcularPrimerMesCuota,
+    formatearMonto,
+    inflacionDeEquilibrio,
+    mesesHasta,
+    proyectarCuotas,
+    valorPresenteCuotas,
+} from '../lib/finanzas';
+import { supabase } from '../lib/supabase';
+import type { GastoGuardado, MedioPago } from '../lib/tipos';
+
+// Montos: "1.200.000" → 1200000. Porcentajes: "2,5" → 2.5
+const leerMonto = (texto: string) => Number(texto.replace(/\./g, '').replace(',', '.'));
+const leerPorcentaje = (texto: string) => Number(texto.replace(',', '.'));
+
+export default function Simular() {
+  const [precio, setPrecio] = useState('');
+  const [descuento, setDescuento] = useState('0');
+  const [cuotas, setCuotas] = useState('12');
+  const [totalCuotas, setTotalCuotas] = useState('');
+  const [inflacion, setInflacion] = useState('2');
+  const [medios, setMedios] = useState<MedioPago[]>([]);
+  const [medioId, setMedioId] = useState<string | null>(null);
+  const [gastos, setGastos] = useState<GastoGuardado[]>([]);
+  const [sueldo, setSueldo] = useState<number | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      async function cargar() {
+        const [{ data: deCredito }, { data: guardados }, { data: perfil }] = await Promise.all([
+          supabase.from('tarjetas').select('*').eq('tipo', 'credito').order('creado_en'),
+          supabase.from('gastos').select('*'),
+          supabase.from('perfiles').select('sueldo').single(),
+        ]);
+        const lista = (deCredito ?? []) as MedioPago[];
+        setMedios(lista);
+        setMedioId((actual) => actual ?? lista[0]?.id ?? null);
+        setGastos((guardados ?? []) as GastoGuardado[]);
+        setSueldo(perfil?.sueldo ? Number(perfil.sueldo) : null);
+      }
+      cargar();
+    }, [])
+  );
+
+  const resultado = useMemo(() => {
+    const precioN = leerMonto(precio);
+    const cuotasN = Number(cuotas);
+    const totalN = totalCuotas ? leerMonto(totalCuotas) : precioN;
+    const medio = medios.find((m) => m.id === medioId) ?? null;
+    if (!(precioN > 0) || !(totalN > 0) || !Number.isInteger(cuotasN) || cuotasN < 1 || !medio) return null;
+
+    const hoy = new Date();
+    const contado = precioN * (1 - leerPorcentaje(descuento) / 100);
+    const primerMes = calcularPrimerMesCuota(hoy, medio);
+    const mesesHastaPrimera = mesesHasta(hoy, primerMes);
+    const valorHoy = valorPresenteCuotas(totalN, cuotasN, mesesHastaPrimera, leerPorcentaje(inflacion) / 100);
+    const equilibrio = inflacionDeEquilibrio(contado, totalN, cuotasN, mesesHastaPrimera);
+
+    const compraSimulada: GastoGuardado = {
+      id: 'simulada',
+      descripcion: 'Compra simulada',
+      categoria: null,
+      monto_total: totalN,
+      moneda: 'ARS',
+      cantidad_cuotas: cuotasN,
+      primer_mes_cuota: primerMes,
+      fecha_compra: '',
+      tarjeta_id: medio.id,
+    };
+
+    return {
+      contado,
+      totalN,
+      cuotasN,
+      valorHoy,
+      equilibrio,
+      antes: proyectarCuotas(gastos, hoy),
+      despues: proyectarCuotas([...gastos, compraSimulada], hoy),
+    };
+  }, [precio, descuento, cuotas, totalCuotas, inflacion, medioId, medios, gastos]);
+
+  const porcentajeSueldo = (valor: number) => (sueldo ? (valor / sueldo) * 100 : null);
+  const colorPara = (p: number | null) => (p === null ? '#f8fafc' : p < 50 ? '#22c55e' : p < 80 ? '#facc15' : '#ef4444');
+
+  if (medios.length === 0) {
+    return (
+      <View style={[styles.container, styles.centrado]}>
+        <Text style={styles.aviso}>Para simular compras en cuotas, agregá una tarjeta de crédito en Ajustes.</Text>
+      </View>
+    );
+  }
+
+  const convieneCuotas = resultado ? resultado.valorHoy < resultado.contado : false;
+  const diferencia = resultado ? Math.abs(resultado.contado - resultado.valorHoy) : 0;
+  const peorMes = resultado?.despues.reduce((max, mes) => (mes.ars > max.ars ? mes : max));
+  const peorPorcentaje = peorMes ? porcentajeSueldo(peorMes.ars) : null;
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
+      <Text style={styles.titulo}>¿Me conviene?</Text>
+      <Text style={styles.subtitulo}>Compará contado contra cuotas, en plata de hoy.</Text>
+
+      <View style={styles.tarjeta}>
+        <View style={styles.fila}>
+          <Campo etiqueta="Precio de lista" valor={precio} onCambio={setPrecio} placeholder="1200000" flex={2} />
+          <Campo etiqueta="Desc. contado %" valor={descuento} onCambio={setDescuento} placeholder="0" />
+        </View>
+        <View style={styles.fila}>
+          <Campo etiqueta="Cuotas" valor={cuotas} onCambio={setCuotas} placeholder="12" />
+          <Campo etiqueta="Total en cuotas (si tiene recargo)" valor={totalCuotas} onCambio={setTotalCuotas} placeholder="Igual al precio" flex={2} />
+        </View>
+        <Campo etiqueta="Inflación mensual estimada %" valor={inflacion} onCambio={setInflacion} placeholder="2" />
+
+        <Text style={styles.etiqueta}>Tarjeta</Text>
+        <View style={styles.chips}>
+          {medios.map((m) => (
+            <Pressable key={m.id} style={[styles.chip, medioId === m.id && styles.chipActivo]} onPress={() => setMedioId(m.id)}>
+              <Text style={[styles.textoChip, medioId === m.id && styles.textoChipActivo]}>{m.nombre}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      {resultado && (
+        <>
+          <View style={[styles.veredicto, { borderColor: convieneCuotas ? '#22c55e' : '#facc15' }]}>
+            <Text style={[styles.veredictoTitulo, { color: convieneCuotas ? '#22c55e' : '#facc15' }]}>
+              {convieneCuotas ? 'Conviene en cuotas' : 'Conviene contado'}
+            </Text>
+            <Text style={styles.veredictoTexto}>
+              Ahorrás {formatearMonto(Math.round(diferencia))} en plata de hoy.
+            </Text>
+
+            <View style={styles.comparacion}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.etiqueta}>Contado</Text>
+                <Text style={styles.valor}>{formatearMonto(Math.round(resultado.contado))}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.etiqueta}>
+                  {resultado.cuotasN} × {formatearMonto(Math.round(resultado.totalN / resultado.cuotasN))}
+                </Text>
+                <Text style={styles.valor}>{formatearMonto(Math.round(resultado.valorHoy))}</Text>
+                <Text style={styles.nota}>en plata de hoy</Text>
+              </View>
+            </View>
+
+            <Text style={styles.equilibrio}>
+              {resultado.equilibrio === 0
+                ? 'Las cuotas convienen con cualquier inflación: el contado no tiene descuento suficiente.'
+                : resultado.equilibrio === null
+                  ? 'Las cuotas no convienen ni con una inflación altísima.'
+                  : `Las cuotas convienen si la inflación mensual promedio supera el ${(resultado.equilibrio * 100).toFixed(1)}%.`}
+            </Text>
+          </View>
+
+          <Text style={styles.seccion}>Si la comprás en cuotas</Text>
+          {resultado.despues.map((mes, i) => {
+            const antes = resultado.antes[i].ars;
+            const pAntes = porcentajeSueldo(antes);
+            const pDespues = porcentajeSueldo(mes.ars);
+            return (
+              <View key={i} style={styles.filaMes}>
+                <Text style={styles.mes}>{mes.etiqueta}</Text>
+                <Text style={styles.antes}>{pAntes !== null ? `${pAntes.toFixed(0)}%` : formatearMonto(Math.round(antes))}</Text>
+                <Text style={styles.flecha}>→</Text>
+                <Text style={[styles.despues, { color: colorPara(pDespues) }]}>
+                  {pDespues !== null ? `${pDespues.toFixed(0)}%` : formatearMonto(Math.round(mes.ars))}
+                </Text>
+              </View>
+            );
+          })}
+          {sueldo === null && <Text style={styles.aviso}>Cargá tu sueldo en Ajustes para verlo como porcentaje.</Text>}
+          {peorMes && peorPorcentaje !== null && peorPorcentaje >= 80 && (
+            <Text style={styles.alerta}>
+              ⚠️ Ojo: en {peorMes.etiqueta} pasarías a tener el {peorPorcentaje.toFixed(0)}% de tu sueldo comprometido.
+            </Text>
+          )}
+        </>
+      )}
+    </ScrollView>
+  );
+}
+
+type PropsCampo = { etiqueta: string; valor: string; onCambio: (v: string) => void; placeholder: string; flex?: number };
+
+function Campo({ etiqueta, valor, onCambio, placeholder, flex = 1 }: PropsCampo) {
+  return (
+    <View style={{ flex }}>
+      <Text style={styles.etiqueta}>{etiqueta}</Text>
+      <TextInput
+        style={styles.input}
+        value={valor}
+        onChangeText={onCambio}
+        placeholder={placeholder}
+        placeholderTextColor="#64748b"
+        keyboardType="decimal-pad"
+      />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#0f172a' },
+  centrado: { justifyContent: 'center', padding: 24 },
+  contenido: { padding: 20, paddingBottom: 40 },
+  titulo: { color: '#f8fafc', fontSize: 26, fontWeight: 'bold' },
+  subtitulo: { color: '#94a3b8', fontSize: 15, marginTop: 4, marginBottom: 16 },
+  tarjeta: { backgroundColor: '#1e293b', borderRadius: 18, padding: 16 },
+  fila: { flexDirection: 'row', gap: 10 },
+  etiqueta: { color: '#94a3b8', fontSize: 13, marginTop: 12, marginBottom: 6 },
+  input: { backgroundColor: '#0f172a', color: '#f8fafc', borderRadius: 12, padding: 13, fontSize: 16, borderWidth: 1, borderColor: '#334155' },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
+  chipActivo: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
+  textoChip: { color: '#cbd5e1', fontWeight: '600' },
+  textoChipActivo: { color: '#0f172a' },
+  veredicto: { backgroundColor: '#1e293b', borderRadius: 18, padding: 18, marginTop: 20, borderWidth: 2 },
+  veredictoTitulo: { fontSize: 22, fontWeight: 'bold' },
+  veredictoTexto: { color: '#f8fafc', fontSize: 16, marginTop: 4 },
+  comparacion: { flexDirection: 'row', gap: 12, marginTop: 8 },
+  valor: { color: '#f8fafc', fontSize: 20, fontWeight: 'bold' },
+  nota: { color: '#64748b', fontSize: 12 },
+  equilibrio: { color: '#94a3b8', fontSize: 14, marginTop: 14 },
+  seccion: { color: '#f8fafc', fontSize: 18, fontWeight: 'bold', marginTop: 28, marginBottom: 10 },
+  filaMes: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, padding: 12, marginBottom: 6 },
+  mes: { color: '#f8fafc', fontSize: 15, fontWeight: '600', width: 50 },
+  antes: { color: '#94a3b8', fontSize: 15, flex: 1, textAlign: 'right' },
+  flecha: { color: '#64748b', fontSize: 15, marginHorizontal: 10 },
+  despues: { fontSize: 15, fontWeight: 'bold', flex: 1 },
+  aviso: { color: '#64748b', fontSize: 14, marginTop: 10, textAlign: 'center' },
+  alerta: { color: '#ef4444', fontSize: 15, fontWeight: '600', marginTop: 14 },
+});

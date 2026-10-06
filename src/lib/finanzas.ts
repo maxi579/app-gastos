@@ -84,3 +84,33 @@ export function proyectarCuotas(gastos: GastoGuardado[], desde: Date, cantidadMe
 
   return meses;
 }
+// Meses desde el mes de "desde" hasta el mes de una fecha 'AAAA-MM-DD'
+export function mesesHasta(desde: Date, fecha: string) {
+  return indiceMes(fecha) - (desde.getFullYear() * 12 + desde.getMonth());
+}
+
+// Cuánto valen hoy unas cuotas iguales, descontando la inflación de cada mes
+export function valorPresenteCuotas(montoTotal: number, cuotas: number, mesesHastaPrimera: number, inflacionMensual: number) {
+  const cuota = montoTotal / cuotas;
+  let total = 0;
+  for (let k = 0; k < cuotas; k++) {
+    total += cuota / Math.pow(1 + inflacionMensual, mesesHastaPrimera + k);
+  }
+  return total;
+}
+
+// Inflación mensual a partir de la cual las cuotas convienen más que el contado.
+// Devuelve 0 si las cuotas convienen siempre, o null si no convienen ni con inflación altísima.
+export function inflacionDeEquilibrio(contado: number, montoTotal: number, cuotas: number, mesesHastaPrimera: number) {
+  const vp = (inflacion: number) => valorPresenteCuotas(montoTotal, cuotas, mesesHastaPrimera, inflacion);
+  if (vp(0) <= contado) return 0;
+  let bajo = 0;
+  let alto = 0.5;
+  if (vp(alto) > contado) return null;
+  for (let i = 0; i < 50; i++) {
+    const medio = (bajo + alto) / 2;
+    if (vp(medio) > contado) bajo = medio;
+    else alto = medio;
+  }
+  return alto;
+}
