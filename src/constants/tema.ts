@@ -21,3 +21,10 @@ export const tipografia = {
   cuerpo: { fontSize: 16, color: colores.texto },
   secundario: { fontSize: 15, color: colores.textoSecundario },
 } as const;
+export const fuentes = {
+  regular: 'PlusJakartaSans_400Regular',
+  medio: 'PlusJakartaSans_500Medium',
+  semi: 'PlusJakartaSans_600SemiBold',
+  bold: 'PlusJakartaSans_700Bold',
+  extra: 'PlusJakartaSans_800ExtraBold',
+};
