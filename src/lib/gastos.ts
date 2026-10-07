@@ -1,4 +1,5 @@
 import { calcularPrimerMesCuota, formatearFecha } from './finanzas';
+import { leerMonto } from './formato';
 import type { Categoria, MedioPago } from './tipos';
 
 export type ValoresGasto = {
@@ -12,7 +13,7 @@ export type ValoresGasto = {
 
 // Valida lo que hay en el formulario y arma la fila para guardar en Supabase
 export function prepararGasto(valores: ValoresGasto, medios: MedioPago[], fechaCompra: Date) {
-  const monto = Number(valores.montoTexto.replace(',', '.'));
+  const monto = leerMonto(valores.montoTexto);
   const cuotas = Number(valores.cuotasTexto);
   const medio = medios.find((m) => m.id === valores.medioId) ?? null;
 

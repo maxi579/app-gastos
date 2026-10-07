@@ -1,6 +1,7 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Encabezado, Texto as Text } from '../components/ui';
 import { formatearMonto, proyectarCuotas, type MesProyectado } from '../lib/finanzas';
 import { supabase } from '../lib/supabase';
 import type { GastoGuardado } from '../lib/tipos';
@@ -34,9 +35,11 @@ export default function Cuotas() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido}>
+      <Encabezado titulo="Cuotas" subtitulo="Lo que ya tenés comprometido" />
+
       <View style={styles.resumen}>
         <Text style={styles.etiqueta}>Comprometido este mes</Text>
-        <Text style={styles.montoGrande}>{formatearMonto(mesActual.ars)}</Text>
+        <Text style={styles.montoGrande}>{formatearMonto(Math.round(mesActual.ars))}</Text>
         {mesActual.usd > 0 && <Text style={styles.dolares}>+ {formatearMonto(mesActual.usd, 'USD')}</Text>}
 
         {porcentaje !== null ? (
@@ -45,7 +48,7 @@ export default function Cuotas() {
               <View style={[styles.barraRelleno, { width: `${Math.min(porcentaje, 100)}%`, backgroundColor: colorEstado }]} />
             </View>
             <Text style={[styles.porcentaje, { color: colorEstado }]}>
-              {porcentaje.toFixed(0)}% de tu sueldo · te quedan {formatearMonto(Math.max(sueldo! - mesActual.ars, 0))}
+              {porcentaje.toFixed(0)}% de tu sueldo · te quedan {formatearMonto(Math.round(Math.max(sueldo! - mesActual.ars, 0)))}
             </Text>
           </>
         ) : (
@@ -72,7 +75,7 @@ export default function Cuotas() {
       </View>
 
       <Text style={styles.seccion}>
-        {mesElegido.etiqueta}: {formatearMonto(mesElegido.ars)}
+        {mesElegido.etiqueta}: {formatearMonto(Math.round(mesElegido.ars))}
         {mesElegido.usd > 0 ? ` + ${formatearMonto(mesElegido.usd, 'USD')}` : ''}
       </Text>
       {mesElegido.cuotas.length === 0 && <Text style={styles.aviso}>Nada comprometido este mes. 🎉</Text>}
@@ -82,7 +85,7 @@ export default function Cuotas() {
             <Text style={styles.itemNombre}>{c.descripcion}</Text>
             <Text style={styles.itemDetalle}>{c.total > 1 ? `Cuota ${c.numero} de ${c.total}` : 'Pago único'}</Text>
           </View>
-          <Text style={styles.itemMonto}>{formatearMonto(c.monto, c.moneda)}</Text>
+          <Text style={styles.itemMonto}>{formatearMonto(Math.round(c.monto), c.moneda)}</Text>
         </View>
       ))}
     </ScrollView>
@@ -91,10 +94,10 @@ export default function Cuotas() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a' },
-  contenido: { padding: 20, paddingBottom: 40 },
+  contenido: { padding: 20, paddingTop: 0, paddingBottom: 40 },
   resumen: { backgroundColor: '#1e293b', borderRadius: 20, padding: 20 },
   etiqueta: { color: '#94a3b8', fontSize: 14 },
-  montoGrande: { color: '#f8fafc', fontSize: 34, fontWeight: 'bold', marginTop: 4 },
+  montoGrande: { color: '#f8fafc', fontSize: 34, fontWeight: '800', marginTop: 4, letterSpacing: -1 },
   dolares: { color: '#94a3b8', fontSize: 15, marginTop: 2 },
   barraFondo: { height: 10, backgroundColor: '#0f172a', borderRadius: 5, marginTop: 16, overflow: 'hidden' },
   barraRelleno: { height: '100%', borderRadius: 5 },

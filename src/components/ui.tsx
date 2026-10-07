@@ -12,6 +12,7 @@ import {
   type ViewStyle,
 } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colores, fuentes, radios } from '../constants/tema';
 
 const PressableAnimado = Animated.createAnimatedComponent(Pressable);
@@ -101,6 +102,17 @@ export function Tarjeta({ children, estilo }: { children: ReactNode; estilo?: Vi
   return <View style={[styles.tarjeta, estilo]}>{children}</View>;
 }
 
+// Título grande de cada pantalla, con espacio para el notch del celular
+export function Encabezado({ titulo, subtitulo }: { titulo: string; subtitulo?: string }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ paddingTop: insets.top + 12, marginBottom: 18 }}>
+      <Texto style={styles.tituloGrande}>{titulo}</Texto>
+      {subtitulo && <Texto style={styles.subtituloGrande}>{subtitulo}</Texto>}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   boton: { borderRadius: radios.medio, padding: 15, alignItems: 'center', justifyContent: 'center' },
   primario: { backgroundColor: colores.primario },
@@ -123,4 +135,6 @@ const styles = StyleSheet.create({
     borderColor: colores.borde,
   },
   tarjeta: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16 },
+  tituloGrande: { color: colores.texto, fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  subtituloGrande: { color: colores.textoSecundario, fontSize: 15, marginTop: 4 },
 });

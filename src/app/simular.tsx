@@ -1,19 +1,20 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
 import {
-    calcularPrimerMesCuota,
-    formatearMonto,
-    inflacionDeEquilibrio,
-    mesesHasta,
-    proyectarCuotas,
-    valorPresenteCuotas,
+  calcularPrimerMesCuota,
+  formatearMonto,
+  inflacionDeEquilibrio,
+  mesesHasta,
+  proyectarCuotas,
+  valorPresenteCuotas,
 } from '../lib/finanzas';
+import { formatearEntradaMonto, leerMonto } from '../lib/formato';
 import { supabase } from '../lib/supabase';
 import type { GastoGuardado, MedioPago } from '../lib/tipos';
 
-// Montos: "1.200.000" → 1200000. Porcentajes: "2,5" → 2.5
-const leerMonto = (texto: string) => Number(texto.replace(/\./g, '').replace(',', '.'));
+// Porcentajes: "2,5" → 2.5
 const leerPorcentaje = (texto: string) => Number(texto.replace(',', '.'));
 
 export default function Simular() {
@@ -100,17 +101,22 @@ export default function Simular() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
-      <Text style={styles.titulo}>¿Me conviene?</Text>
-      <Text style={styles.subtitulo}>Compará contado contra cuotas, en plata de hoy.</Text>
+      <Encabezado titulo="¿Me conviene?" subtitulo="Compará contado contra cuotas, en plata de hoy." />
 
       <View style={styles.tarjeta}>
         <View style={styles.fila}>
-          <Campo etiqueta="Precio de lista" valor={precio} onCambio={setPrecio} placeholder="1200000" flex={2} />
+          <Campo etiqueta="Precio de lista" valor={precio} onCambio={(v) => setPrecio(formatearEntradaMonto(v))} placeholder="1.200.000" flex={2} />
           <Campo etiqueta="Desc. contado %" valor={descuento} onCambio={setDescuento} placeholder="0" />
         </View>
         <View style={styles.fila}>
           <Campo etiqueta="Cuotas" valor={cuotas} onCambio={setCuotas} placeholder="12" />
-          <Campo etiqueta="Total en cuotas (si tiene recargo)" valor={totalCuotas} onCambio={setTotalCuotas} placeholder="Igual al precio" flex={2} />
+          <Campo
+            etiqueta="Total en cuotas (si tiene recargo)"
+            valor={totalCuotas}
+            onCambio={(v) => setTotalCuotas(formatearEntradaMonto(v))}
+            placeholder="Igual al precio"
+            flex={2}
+          />
         </View>
         <Campo etiqueta="Inflación mensual estimada %" valor={inflacion} onCambio={setInflacion} placeholder="2" />
 
@@ -130,9 +136,7 @@ export default function Simular() {
             <Text style={[styles.veredictoTitulo, { color: convieneCuotas ? '#22c55e' : '#facc15' }]}>
               {convieneCuotas ? 'Conviene en cuotas' : 'Conviene contado'}
             </Text>
-            <Text style={styles.veredictoTexto}>
-              Ahorrás {formatearMonto(Math.round(diferencia))} en plata de hoy.
-            </Text>
+            <Text style={styles.veredictoTexto}>Ahorrás {formatearMonto(Math.round(diferencia))} en plata de hoy.</Text>
 
             <View style={styles.comparacion}>
               <View style={{ flex: 1 }}>
@@ -191,14 +195,7 @@ function Campo({ etiqueta, valor, onCambio, placeholder, flex = 1 }: PropsCampo)
   return (
     <View style={{ flex }}>
       <Text style={styles.etiqueta}>{etiqueta}</Text>
-      <TextInput
-        style={styles.input}
-        value={valor}
-        onChangeText={onCambio}
-        placeholder={placeholder}
-        placeholderTextColor="#64748b"
-        keyboardType="decimal-pad"
-      />
+      <TextInput style={styles.input} value={valor} onChangeText={onCambio} placeholder={placeholder} keyboardType="decimal-pad" />
     </View>
   );
 }
@@ -206,9 +203,7 @@ function Campo({ etiqueta, valor, onCambio, placeholder, flex = 1 }: PropsCampo)
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#0f172a' },
   centrado: { justifyContent: 'center', padding: 24 },
-  contenido: { padding: 20, paddingBottom: 40 },
-  titulo: { color: '#f8fafc', fontSize: 26, fontWeight: 'bold' },
-  subtitulo: { color: '#94a3b8', fontSize: 15, marginTop: 4, marginBottom: 16 },
+  contenido: { padding: 20, paddingTop: 0, paddingBottom: 40 },
   tarjeta: { backgroundColor: '#1e293b', borderRadius: 18, padding: 16 },
   fila: { flexDirection: 'row', gap: 10 },
   etiqueta: { color: '#94a3b8', fontSize: 13, marginTop: 12, marginBottom: 6 },
@@ -219,7 +214,7 @@ const styles = StyleSheet.create({
   textoChip: { color: '#cbd5e1', fontWeight: '600' },
   textoChipActivo: { color: '#0f172a' },
   veredicto: { backgroundColor: '#1e293b', borderRadius: 18, padding: 18, marginTop: 20, borderWidth: 2 },
-  veredictoTitulo: { fontSize: 22, fontWeight: 'bold' },
+  veredictoTitulo: { fontSize: 22, fontWeight: '800' },
   veredictoTexto: { color: '#f8fafc', fontSize: 16, marginTop: 4 },
   comparacion: { flexDirection: 'row', gap: 12, marginTop: 8 },
   valor: { color: '#f8fafc', fontSize: 20, fontWeight: 'bold' },

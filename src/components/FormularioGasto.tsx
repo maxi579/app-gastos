@@ -1,9 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { colores } from '../constants/tema';
 import { formatearMonto } from '../lib/finanzas';
+import { formatearEntradaMonto, leerMonto } from '../lib/formato';
 import type { ValoresGasto } from '../lib/gastos';
 import { CATEGORIAS, type MedioPago } from '../lib/tipos';
-import { Boton, Campo, Chip, Etiqueta } from './ui';
+import { Boton, Campo, Chip, Etiqueta, Texto as Text } from './ui';
 
 type Props = {
   valores: ValoresGasto;
@@ -27,7 +28,7 @@ export default function FormularioGasto({
   guardando = false,
 }: Props) {
   const cambiar = (cambios: Partial<ValoresGasto>) => onCambio({ ...valores, ...cambios });
-  const monto = Number(valores.montoTexto.replace(',', '.'));
+  const monto = leerMonto(valores.montoTexto);
   const cuotas = Number(valores.cuotasTexto);
 
   return (
@@ -39,7 +40,7 @@ export default function FormularioGasto({
           etiqueta="Monto total"
           contenedor={{ flex: 2 }}
           value={valores.montoTexto}
-          onChangeText={(v) => cambiar({ montoTexto: v })}
+          onChangeText={(v) => cambiar({ montoTexto: formatearEntradaMonto(v) })}
           keyboardType="decimal-pad"
           placeholder="0"
         />

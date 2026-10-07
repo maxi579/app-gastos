@@ -1,3 +1,4 @@
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { PlusJakartaSans_400Regular } from '@expo-google-fonts/plus-jakarta-sans/400Regular';
 import { PlusJakartaSans_500Medium } from '@expo-google-fonts/plus-jakarta-sans/500Medium';
 import { PlusJakartaSans_600SemiBold } from '@expo-google-fonts/plus-jakarta-sans/600SemiBold';
@@ -10,6 +11,7 @@ import { Tabs } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import PantallaLogin from '../components/PantallaLogin';
+import { ProveedorAvisos } from '../components/Toast';
 import { colores, fuentes } from '../constants/tema';
 import { supabase } from '../lib/supabase';
 
@@ -33,34 +35,37 @@ export default function Layout() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  let contenido;
   if (cargando || !fuentesListas) {
-    return (
+    contenido = (
       <View style={{ flex: 1, backgroundColor: colores.fondo, justifyContent: 'center' }}>
         <ActivityIndicator color={colores.primario} size="large" />
       </View>
     );
+  } else if (!sesion) {
+    contenido = <PantallaLogin />;
+  } else {
+    contenido = (
+      <Tabs
+        screenOptions={{
+          headerShown: false,
+          tabBarActiveTintColor: colores.primario,
+          tabBarInactiveTintColor: colores.textoTenue,
+          tabBarStyle: { backgroundColor: colores.fondo, borderTopColor: colores.superficie },
+          tabBarLabelStyle: { fontFamily: fuentes.semi, fontSize: 11 },
+        }}
+      >
+        <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} /> }} />
+        <Tabs.Screen name="cargar" options={{ title: 'Cargar', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" color={color} size={size} /> }} />
+        <Tabs.Screen name="cuotas" options={{ title: 'Cuotas', tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} /> }} />
+        <Tabs.Screen name="simular" options={{ title: 'Simular', tabBarIcon: ({ color, size }) => <Ionicons name="calculator-outline" color={color} size={size} /> }} />
+        <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} /> }} />
+      </Tabs>
+    );
   }
-
-  if (!sesion) return <PantallaLogin />;
-
-  return (
-    <Tabs
-      screenOptions={{
-        tabBarActiveTintColor: colores.primario,
-        tabBarInactiveTintColor: colores.textoTenue,
-        tabBarStyle: { backgroundColor: colores.fondo, borderTopColor: colores.superficie },
-        tabBarLabelStyle: { fontFamily: fuentes.semi, fontSize: 11 },
-        headerStyle: { backgroundColor: colores.fondo },
-        headerShadowVisible: false,
-        headerTintColor: colores.texto,
-        headerTitleStyle: { fontFamily: fuentes.bold, fontSize: 17 },
-      }}
-    >
-      <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="cargar" options={{ title: 'Cargar', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="cuotas" options={{ title: 'Cuotas', tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="simular" options={{ title: 'Simular', tabBarIcon: ({ color, size }) => <Ionicons name="calculator-outline" color={color} size={size} /> }} />
-      <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} /> }} />
-    </Tabs>
+    return (
+    <SafeAreaProvider>
+      <ProveedorAvisos>{contenido}</ProveedorAvisos>
+    </SafeAreaProvider>
   );
 }

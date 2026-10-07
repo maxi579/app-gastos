@@ -1,12 +1,14 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Modal, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, Text, View } from 'react-native';
+import { Alert, Modal, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import FormularioGasto from '../components/FormularioGasto';
-import { Boton } from '../components/ui';
+import { useAviso } from '../components/Toast';
+import { Boton, Encabezado, Texto as Text } from '../components/ui';
 import { colores, radios, tipografia } from '../constants/tema';
 import { formatearFecha, formatearMonto, proyectarCuotas, type MesProyectado } from '../lib/finanzas';
+import { montoATexto } from '../lib/formato';
 import { fechaDesdeTexto, prepararGasto, type ValoresGasto } from '../lib/gastos';
 import { supabase } from '../lib/supabase';
 import type { Categoria, GastoGuardado, MedioPago } from '../lib/tipos';
@@ -32,6 +34,7 @@ const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 's
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 export default function Inicio() {
+  const aviso = useAviso();
   const [nombre, setNombre] = useState<string | null>(null);
   const [sueldo, setSueldo] = useState<number | null>(null);
   const [gastos, setGastos] = useState<GastoConMedio[]>([]);
@@ -75,7 +78,7 @@ export default function Inicio() {
       gasto,
       valores: {
         descripcion: gasto.descripcion,
-        montoTexto: String(Number(gasto.monto_total)),
+        montoTexto: montoATexto(Number(gasto.monto_total)),
         cuotasTexto: String(gasto.cantidad_cuotas),
         moneda: gasto.moneda,
         medioId: gasto.tarjeta_id,
@@ -95,6 +98,7 @@ export default function Inicio() {
 
     if (error) return setMensaje(`Error: ${error.message}`);
     setEdicion(null);
+    aviso('Cambios guardados ✓');
     cargar();
   }
 
@@ -110,12 +114,14 @@ export default function Inicio() {
           const { error } = await supabase.from('gastos').delete().eq('id', gasto.id);
           if (error) return setMensaje(`Error: ${error.message}`);
           setEdicion(null);
+          aviso('Gasto eliminado');
           cargar();
         },
       },
     ]);
   }
 
+  const primerNombre = nombre ? nombre.split(' ')[0] : null;
   const comprometido = meses[0]?.ars ?? 0;
   const proximoMes = meses[1]?.ars ?? 0;
   const porcentaje = sueldo ? (comprometido / sueldo) * 100 : null;
@@ -132,7 +138,7 @@ export default function Inicio() {
         refreshControl={<RefreshControl refreshing={cargando} onRefresh={cargar} tintColor={colores.primario} />}
         ListHeaderComponent={
           <View>
-            <Text style={tipografia.titulo}>Hola{nombre ? `, ${nombre}` : ''} 👋</Text>
+            <Encabezado titulo={`Hola${primerNombre ? `, ${primerNombre}` : ''} 👋`} subtitulo="Así vienen tus finanzas este mes" />
 
             <View style={styles.hero}>
               <Text style={styles.heroEtiqueta}>Comprometido en {MESES[new Date().getMonth()]}</Text>
@@ -247,24 +253,23 @@ function tituloDia(fecha: string) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colores.fondo },
-  contenido: { padding: 20, paddingBottom: 40 },
+  contenido: { padding: 20, paddingTop: 0, paddingBottom: 40 },
   contenidoModal: { padding: 20, paddingTop: 28, paddingBottom: 60 },
   hero: {
     backgroundColor: '#052e16',
     borderColor: '#166534',
     borderWidth: 1,
     borderRadius: 24,
-    padding: 20,
-    marginTop: 18,
+    padding: 22,
   },
   heroEtiqueta: { color: '#86efac', fontSize: 14, fontWeight: '600' },
-  heroMonto: { color: colores.texto, fontSize: 38, fontWeight: '800', marginTop: 4, letterSpacing: -1 },
-  barraFondo: { height: 10, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 5, marginTop: 16, overflow: 'hidden' },
-  barraRelleno: { height: '100%', borderRadius: 5 },
+  heroMonto: { color: colores.texto, fontSize: 34, fontWeight: '800', marginTop: 6, letterSpacing: -1 },
+  barraFondo: { height: 8, backgroundColor: 'rgba(0,0,0,0.35)', borderRadius: 4, marginTop: 18, overflow: 'hidden' },
+  barraRelleno: { height: '100%', borderRadius: 4 },
   heroFila: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  heroDato: { color: colores.textoChip, fontSize: 14, fontWeight: '600' },
+  heroDato: { color: colores.textoChip, fontSize: 13, fontWeight: '600' },
   heroPista: { color: colores.textoSecundario, fontSize: 14, marginTop: 10 },
-  heroProximo: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 16, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#166534' },
+  heroProximo: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 18, paddingTop: 14, borderTopWidth: 1, borderTopColor: '#166534' },
   heroProximoTexto: { color: colores.textoSecundario, fontSize: 13, flex: 1 },
   seccion: { marginTop: 28 },
   dia: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 },
