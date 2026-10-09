@@ -2,6 +2,8 @@ import * as Haptics from 'expo-haptics';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   Text as RNText,
   TextInput as RNTextInput,
@@ -53,8 +55,8 @@ export function Boton({ titulo, onPress, variante = 'primario', cargando = false
 
   return (
     <PressableAnimado
-      onPressIn={() => (escala.value = withSpring(0.96))}
-      onPressOut={() => (escala.value = withSpring(1))}
+      onPressIn={() => escala.set(withSpring(0.96))}
+      onPressOut={() => escala.set(withSpring(1))}
       onPress={() => {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         onPress();
@@ -113,6 +115,18 @@ export function Encabezado({ titulo, subtitulo }: { titulo: string; subtitulo?: 
   );
 }
 
+// Pregunta antes de una acción destructiva. En la web Alert no muestra botones, así que usamos confirm().
+export function confirmar(titulo: string, mensaje: string, textoAccion: string, accion: () => void) {
+  if (Platform.OS === 'web') {
+    if (window.confirm(`${titulo}\n\n${mensaje}`)) accion();
+    return;
+  }
+  Alert.alert(titulo, mensaje, [
+    { text: 'Cancelar', style: 'cancel' },
+    { text: textoAccion, style: 'destructive', onPress: accion },
+  ]);
+}
+
 const styles = StyleSheet.create({
   boton: { borderRadius: radios.medio, padding: 15, alignItems: 'center', justifyContent: 'center' },
   primario: { backgroundColor: colores.primario },
@@ -134,7 +148,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  tarjeta: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16 },
-  tituloGrande: { color: colores.texto, fontSize: 28, fontWeight: '800', letterSpacing: -0.5 },
+  tarjeta: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, borderWidth: 1, borderColor: colores.borde },
+  tituloGrande: { color: colores.texto, fontSize: 30, fontWeight: '800', letterSpacing: -0.8 },
   subtituloGrande: { color: colores.textoSecundario, fontSize: 15, marginTop: 4 },
 });

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { colores, radios } from '../constants/tema';
-import { supabase } from '../lib/supabase';
+import { useDatos } from '../lib/contextoDatos';
 import type { MedioPago, Red, TipoMedio } from '../lib/tipos';
 import { Boton, Campo, Chip, Etiqueta, Texto as Text } from './ui';
 
@@ -15,6 +15,7 @@ const REDES: { valor: Red; etiqueta: string }[] = [
 ];
 
 export default function FormularioMedioPago({ medio, onGuardado, onCancelar }: Props) {
+  const fuente = useDatos();
   const editando = medio !== undefined;
   const [nombre, setNombre] = useState(medio?.nombre ?? '');
   const [banco, setBanco] = useState(medio?.banco ?? '');
@@ -46,13 +47,15 @@ export default function FormularioMedioPago({ medio, onGuardado, onCancelar }: P
     };
 
     setGuardando(true);
-    const { error } = editando
-      ? await supabase.from('tarjetas').update(datos).eq('id', medio.id)
-      : await supabase.from('tarjetas').insert(datos);
-    setGuardando(false);
-
-    if (error) setError(error.message);
-    else onGuardado();
+    try {
+      if (editando) await fuente.actualizarMedio(medio.id, datos);
+      else await fuente.crearMedio(datos);
+      setGuardando(false);
+      onGuardado();
+    } catch (e) {
+      setGuardando(false);
+      setError((e as Error).message);
+    }
   }
 
   return (
@@ -120,7 +123,7 @@ function esDiaValido(dia: number) {
 }
 
 const styles = StyleSheet.create({
-  caja: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, marginBottom: 10 },
+  caja: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: colores.borde },
   titulo: { color: colores.texto, fontSize: 17, fontWeight: '700' },
   fila: { flexDirection: 'row', gap: 10 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

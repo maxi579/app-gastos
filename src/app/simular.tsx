@@ -1,7 +1,10 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
+import { ScrollView, StyleSheet, View } from 'react-native';
+import { useAviso } from '../components/Toast';
+import { Chip, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
+import { colores, colorSegunPorcentaje, radios } from '../constants/tema';
+import { useDatos } from '../lib/contextoDatos';
 import {
   calcularPrimerMesCuota,
   formatearMonto,
@@ -11,13 +14,14 @@ import {
   valorPresenteCuotas,
 } from '../lib/finanzas';
 import { formatearEntradaMonto, leerMonto } from '../lib/formato';
-import { supabase } from '../lib/supabase';
 import type { GastoGuardado, MedioPago } from '../lib/tipos';
 
 // Porcentajes: "2,5" → 2.5
 const leerPorcentaje = (texto: string) => Number(texto.replace(',', '.'));
 
 export default function Simular() {
+  const datos = useDatos();
+  const aviso = useAviso();
   const [precio, setPrecio] = useState('');
   const [descuento, setDescuento] = useState('0');
   const [cuotas, setCuotas] = useState('12');
@@ -30,20 +34,16 @@ export default function Simular() {
 
   useFocusEffect(
     useCallback(() => {
-      async function cargar() {
-        const [{ data: deCredito }, { data: guardados }, { data: perfil }] = await Promise.all([
-          supabase.from('tarjetas').select('*').eq('tipo', 'credito').order('creado_en'),
-          supabase.from('gastos').select('*'),
-          supabase.from('perfiles').select('sueldo').single(),
-        ]);
-        const lista = (deCredito ?? []) as MedioPago[];
-        setMedios(lista);
-        setMedioId((actual) => actual ?? lista[0]?.id ?? null);
-        setGastos((guardados ?? []) as GastoGuardado[]);
-        setSueldo(perfil?.sueldo ? Number(perfil.sueldo) : null);
-      }
-      cargar();
-    }, [])
+      Promise.all([datos.medios(), datos.gastos(), datos.perfil()])
+        .then(([todos, guardados, perfil]) => {
+          const lista = todos.filter((m) => m.tipo === 'credito');
+          setMedios(lista);
+          setMedioId((actual) => (lista.some((m) => m.id === actual) ? actual : (lista[0]?.id ?? null)));
+          setGastos(guardados);
+          setSueldo(perfil.sueldo);
+        })
+        .catch((e) => aviso(e.message, 'error'));
+    }, [datos, aviso])
   );
 
   const resultado = useMemo(() => {
@@ -84,7 +84,7 @@ export default function Simular() {
   }, [precio, descuento, cuotas, totalCuotas, inflacion, medioId, medios, gastos]);
 
   const porcentajeSueldo = (valor: number) => (sueldo ? (valor / sueldo) * 100 : null);
-  const colorPara = (p: number | null) => (p === null ? '#f8fafc' : p < 50 ? '#22c55e' : p < 80 ? '#facc15' : '#ef4444');
+  const colorPara = (p: number | null) => (p === null ? colores.texto : colorSegunPorcentaje(p));
 
   if (medios.length === 0) {
     return (
@@ -123,17 +123,15 @@ export default function Simular() {
         <Text style={styles.etiqueta}>Tarjeta</Text>
         <View style={styles.chips}>
           {medios.map((m) => (
-            <Pressable key={m.id} style={[styles.chip, medioId === m.id && styles.chipActivo]} onPress={() => setMedioId(m.id)}>
-              <Text style={[styles.textoChip, medioId === m.id && styles.textoChipActivo]}>{m.nombre}</Text>
-            </Pressable>
+            <Chip key={m.id} etiqueta={m.nombre} activo={medioId === m.id} onPress={() => setMedioId(m.id)} />
           ))}
         </View>
       </View>
 
       {resultado && (
         <>
-          <View style={[styles.veredicto, { borderColor: convieneCuotas ? '#22c55e' : '#facc15' }]}>
-            <Text style={[styles.veredictoTitulo, { color: convieneCuotas ? '#22c55e' : '#facc15' }]}>
+          <View style={[styles.veredicto, { borderColor: convieneCuotas ? colores.primario : colores.advertencia }]}>
+            <Text style={[styles.veredictoTitulo, { color: convieneCuotas ? colores.primario : colores.advertencia }]}>
               {convieneCuotas ? 'Conviene en cuotas' : 'Conviene contado'}
             </Text>
             <Text style={styles.veredictoTexto}>Ahorrás {formatearMonto(Math.round(diferencia))} en plata de hoy.</Text>
@@ -201,31 +199,27 @@ function Campo({ etiqueta, valor, onCambio, placeholder, flex = 1 }: PropsCampo)
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' },
+  container: { flex: 1, backgroundColor: colores.fondo },
   centrado: { justifyContent: 'center', padding: 24 },
   contenido: { padding: 20, paddingTop: 0, paddingBottom: 40 },
-  tarjeta: { backgroundColor: '#1e293b', borderRadius: 18, padding: 16 },
+  tarjeta: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, borderWidth: 1, borderColor: colores.borde },
   fila: { flexDirection: 'row', gap: 10 },
-  etiqueta: { color: '#94a3b8', fontSize: 13, marginTop: 12, marginBottom: 6 },
-  input: { backgroundColor: '#0f172a', color: '#f8fafc', borderRadius: 12, padding: 13, fontSize: 16, borderWidth: 1, borderColor: '#334155' },
+  etiqueta: { color: colores.textoSecundario, fontSize: 13, marginTop: 12, marginBottom: 6 },
+  input: { backgroundColor: colores.fondo, color: colores.texto, borderRadius: 12, padding: 13, fontSize: 16, borderWidth: 1, borderColor: colores.borde },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { paddingVertical: 8, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1, borderColor: '#334155' },
-  chipActivo: { backgroundColor: '#22c55e', borderColor: '#22c55e' },
-  textoChip: { color: '#cbd5e1', fontWeight: '600' },
-  textoChipActivo: { color: '#0f172a' },
-  veredicto: { backgroundColor: '#1e293b', borderRadius: 18, padding: 18, marginTop: 20, borderWidth: 2 },
+  veredicto: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 18, marginTop: 20, borderWidth: 2 },
   veredictoTitulo: { fontSize: 22, fontWeight: '800' },
-  veredictoTexto: { color: '#f8fafc', fontSize: 16, marginTop: 4 },
+  veredictoTexto: { color: colores.texto, fontSize: 16, marginTop: 4 },
   comparacion: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  valor: { color: '#f8fafc', fontSize: 20, fontWeight: 'bold' },
-  nota: { color: '#64748b', fontSize: 12 },
-  equilibrio: { color: '#94a3b8', fontSize: 14, marginTop: 14 },
-  seccion: { color: '#f8fafc', fontSize: 18, fontWeight: 'bold', marginTop: 28, marginBottom: 10 },
-  filaMes: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 12, padding: 12, marginBottom: 6 },
-  mes: { color: '#f8fafc', fontSize: 15, fontWeight: '600', width: 50 },
-  antes: { color: '#94a3b8', fontSize: 15, flex: 1, textAlign: 'right' },
-  flecha: { color: '#64748b', fontSize: 15, marginHorizontal: 10 },
+  valor: { color: colores.texto, fontSize: 20, fontWeight: 'bold' },
+  nota: { color: colores.textoTenue, fontSize: 12 },
+  equilibrio: { color: colores.textoSecundario, fontSize: 14, marginTop: 14 },
+  seccion: { color: colores.texto, fontSize: 18, fontWeight: 'bold', marginTop: 28, marginBottom: 10 },
+  filaMes: { flexDirection: 'row', alignItems: 'center', backgroundColor: colores.superficie, borderRadius: 12, padding: 12, marginBottom: 6 },
+  mes: { color: colores.texto, fontSize: 15, fontWeight: '600', width: 50 },
+  antes: { color: colores.textoSecundario, fontSize: 15, flex: 1, textAlign: 'right' },
+  flecha: { color: colores.textoTenue, fontSize: 15, marginHorizontal: 10 },
   despues: { fontSize: 15, fontWeight: 'bold', flex: 1 },
-  aviso: { color: '#64748b', fontSize: 14, marginTop: 10, textAlign: 'center' },
-  alerta: { color: '#ef4444', fontSize: 15, fontWeight: '600', marginTop: 14 },
+  aviso: { color: colores.textoTenue, fontSize: 14, marginTop: 10, textAlign: 'center' },
+  alerta: { color: colores.peligro, fontSize: 15, fontWeight: '600', marginTop: 14 },
 });

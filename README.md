@@ -1,56 +1,57 @@
-# Welcome to your Expo app 👋
+# 💳 App de Gastos — tarjetas y cuotas bajo control
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+App móvil para llevar el control de gastos con tarjeta en Argentina: **cuánto tenés comprometido en cuotas cada mes, qué parte de tu sueldo se lleva y si te conviene pagar contado o en cuotas** con la inflación.
 
-## Get started
+Hecha con **Expo (React Native) + TypeScript + Supabase**. Funciona en iOS, Android y web.
 
-1. Install dependencies
+## Funcionalidades
 
-   ```bash
-   npm install
-   ```
+- **Carga en lenguaje natural**: escribís *"zapas 120k en 6 cuotas con visa"* y la app detecta monto, cuotas, moneda, tarjeta y categoría (entiende "lucas", "k", "palos", dólares, efectivo, Mercado Pago…).
+- **Cuotas proyectadas**: calcula en qué resumen cae cada compra según el día de cierre y vencimiento de cada tarjeta, y muestra lo comprometido en los próximos 6 meses.
+- **% del sueldo**: indicador verde/amarillo/rojo de cuánto del sueldo ya está comprometido.
+- **Simulador contado vs. cuotas**: compara las dos opciones en *plata de hoy* (valor presente con inflación mensual) y calcula la inflación a partir de la cual conviene cada una.
+- **Gastos del mes por categoría** e historial agrupado por día, con edición y borrado.
+- **Medios de pago**: tarjetas de crédito y débito con cierre y vencimiento.
+- **Modo demo**: se puede probar sin cuenta con datos de ejemplo.
+- Detalles de UX: animaciones con Reanimated, vibración háptica, avisos tipo toast, tipografía Plus Jakarta Sans.
 
-2. Start the app
+## Stack
 
-   ```bash
-   npx expo start
-   ```
+| | |
+|---|---|
+| App | Expo SDK 57, React Native, Expo Router, TypeScript |
+| UI | Reanimated, expo-linear-gradient, expo-haptics |
+| Backend | Supabase (Auth + PostgreSQL con Row Level Security) |
 
-In the output, you'll find options to open the app in a
+## Arquitectura
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+src/
+├── app/            # Pantallas (Expo Router): inicio, cargar, cuotas, simular, ajustes
+├── components/     # UI reutilizable, formularios, login, toasts
+├── constants/      # Tema (colores, tipografía) y estilos por categoría
+└── lib/
+    ├── interpretarGasto.ts  # Parser de lenguaje natural → gasto
+    ├── finanzas.ts          # Cuotas, proyección mensual, valor presente
+    ├── datos.ts             # Acceso a datos (interfaz + implementación Supabase)
+    └── demo.ts              # Misma interfaz con datos en memoria (modo demo)
+supabase/schema.sql          # Tablas, índices y políticas RLS
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Las pantallas no hablan directo con Supabase: usan una `FuenteDatos`, así el modo demo y el modo real comparten todo el código de la interfaz.
 
-### Other setup steps
+## Correrlo
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+```bash
+npm install
+# crear .env.local con:
+# EXPO_PUBLIC_SUPABASE_URL=...
+# EXPO_PUBLIC_SUPABASE_KEY=...
+npx expo start
+```
 
-## Learn more
+Escaneá el QR con **Expo Go** o abrí la versión web con `w`. La base de datos se crea con [`supabase/schema.sql`](supabase/schema.sql).
 
-To learn more about developing your project with Expo, look at the following resources:
+---
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Hecho por [maxi579](https://github.com/maxi579).

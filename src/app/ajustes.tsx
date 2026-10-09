@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import FormularioMedioPago from '../components/FormularioMedioPago';
 import { useAviso } from '../components/Toast';
-import { Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
+import { confirmar, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
+import { colores, radios } from '../constants/tema';
+import { useDatos } from '../lib/contextoDatos';
 import { formatearEntradaMonto, leerMonto, montoATexto } from '../lib/formato';
-import { supabase } from '../lib/supabase';
 import type { MedioPago } from '../lib/tipos';
 
 export default function Ajustes() {
+  const datos = useDatos();
   const aviso = useAviso();
   const [medios, setMedios] = useState<MedioPago[]>([]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -16,47 +19,51 @@ export default function Ajustes() {
   const [sueldoTexto, setSueldoTexto] = useState('');
 
   useEffect(() => {
-    supabase.from('perfiles').select('sueldo').single().then(({ data }) => {
-      if (data?.sueldo) setSueldoTexto(montoATexto(Number(data.sueldo)));
+    datos.perfil().then((perfil) => {
+      if (perfil.sueldo) setSueldoTexto(montoATexto(perfil.sueldo));
     });
-  }, []);
+  }, [datos]);
 
   async function guardarSueldo() {
     const sueldo = leerMonto(sueldoTexto);
     if (!(sueldo > 0)) return aviso('Ingresá un monto válido', 'error');
-    const { data: usuario } = await supabase.auth.getUser();
-    const { error } = await supabase.from('perfiles').update({ sueldo }).eq('id', usuario.user!.id);
-    if (error) aviso(error.message, 'error');
-    else aviso('Sueldo guardado ✓');
+    try {
+      await datos.guardarSueldo(sueldo);
+      aviso('Sueldo guardado ✓');
+    } catch (e) {
+      aviso((e as Error).message, 'error');
+    }
   }
 
   const cargarMedios = useCallback(async () => {
-    const { data, error } = await supabase.from('tarjetas').select('*').order('creado_en');
-    if (error) aviso(error.message, 'error');
-    else setMedios(data);
-  }, [aviso]);
+    try {
+      setMedios(await datos.medios());
+    } catch (e) {
+      aviso((e as Error).message, 'error');
+    }
+  }, [datos, aviso]);
 
-  useEffect(() => {
-    cargarMedios();
-  }, [cargarMedios]);
+  // Recarga al volver a la pestaña, por si cambió algo en otra pantalla
+  useFocusEffect(
+    useCallback(() => {
+      cargarMedios();
+    }, [cargarMedios])
+  );
 
   function confirmarBorrado(medio: MedioPago) {
-    Alert.alert(
+    confirmar(
       'Eliminar medio de pago',
       `¿Eliminar "${medio.nombre}"? Los gastos que tenga asociados se conservan, pero sin medio de pago.`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            const { error } = await supabase.from('tarjetas').delete().eq('id', medio.id);
-            if (error) return aviso(error.message, 'error');
-            aviso('Medio de pago eliminado');
-            cargarMedios();
-          },
-        },
-      ]
+      'Eliminar',
+      async () => {
+        try {
+          await datos.borrarMedio(medio.id);
+          aviso('Medio de pago eliminado');
+          cargarMedios();
+        } catch (e) {
+          aviso((e as Error).message, 'error');
+        }
+      }
     );
   }
 
@@ -103,7 +110,9 @@ export default function Ajustes() {
               setEditandoId(medio.id);
             }}
           >
-            <Ionicons name={medio.tipo === 'credito' ? 'card' : 'wallet'} size={24} color="#22c55e" />
+            <View style={styles.iconoMedio}>
+              <Ionicons name={medio.tipo === 'credito' ? 'card' : 'wallet'} size={20} color={colores.primario} />
+            </View>
             <View style={styles.info}>
               <Text style={styles.nombre}>{medio.nombre}</Text>
               <Text style={styles.detalle}>
@@ -114,7 +123,7 @@ export default function Ajustes() {
               </Text>
             </View>
             <Pressable onPress={() => confirmarBorrado(medio)} hitSlop={10}>
-              <Ionicons name="trash-outline" size={20} color="#64748b" />
+              <Ionicons name="trash-outline" size={20} color={colores.textoTenue} />
             </Pressable>
           </Pressable>
         )
@@ -137,34 +146,35 @@ export default function Ajustes() {
             setMostrarFormulario(true);
           }}
         >
-          <Ionicons name="add" size={20} color="#22c55e" />
+          <Ionicons name="add" size={20} color={colores.primario} />
           <Text style={styles.textoAgregar}>Agregar medio de pago</Text>
         </Pressable>
       )}
 
-      <Pressable style={styles.botonSalir} onPress={() => supabase.auth.signOut()}>
-        <Text style={styles.textoSalir}>Cerrar sesión</Text>
+      <Pressable style={styles.botonSalir} onPress={() => datos.salir()}>
+        <Text style={styles.textoSalir}>{datos.esDemo ? 'Salir del modo demo' : 'Cerrar sesión'}</Text>
       </Pressable>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0f172a' },
+  container: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 20, paddingTop: 0, paddingBottom: 40 },
-  seccion: { color: '#f8fafc', fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
-  pista: { color: '#64748b', fontSize: 13, marginTop: -6, marginBottom: 12 },
-  vacio: { color: '#64748b', marginBottom: 12 },
+  seccion: { color: colores.texto, fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
+  pista: { color: colores.textoTenue, fontSize: 13, marginTop: -6, marginBottom: 12 },
+  vacio: { color: colores.textoTenue, marginBottom: 12 },
   filaSueldo: { flexDirection: 'row', gap: 10, marginBottom: 28 },
-  inputSueldo: { flex: 1, backgroundColor: '#1e293b', color: '#f8fafc', borderRadius: 14, padding: 14, fontSize: 16, borderWidth: 1, borderColor: '#334155' },
-  botonSueldo: { backgroundColor: '#22c55e', borderRadius: 14, paddingHorizontal: 20, justifyContent: 'center' },
-  textoBotonSueldo: { color: '#0f172a', fontWeight: 'bold', fontSize: 16 },
-  tarjeta: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1e293b', borderRadius: 16, padding: 16, marginBottom: 10 },
+  inputSueldo: { flex: 1, backgroundColor: colores.superficie, color: colores.texto, borderRadius: 14, padding: 14, fontSize: 16, borderWidth: 1, borderColor: colores.borde },
+  botonSueldo: { backgroundColor: colores.primario, borderRadius: 14, paddingHorizontal: 20, justifyContent: 'center' },
+  textoBotonSueldo: { color: colores.sobrePrimario, fontWeight: 'bold', fontSize: 16 },
+  tarjeta: { flexDirection: 'row', alignItems: 'center', backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colores.borde },
+  iconoMedio: { width: 40, height: 40, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, marginLeft: 12 },
-  nombre: { color: '#f8fafc', fontSize: 16, fontWeight: '600' },
-  detalle: { color: '#94a3b8', fontSize: 13, marginTop: 2 },
-  botonAgregar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderColor: '#22c55e', borderRadius: 16, padding: 16, marginTop: 4 },
-  textoAgregar: { color: '#22c55e', fontWeight: '600', fontSize: 16 },
-  botonSalir: { marginTop: 40, alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#ef4444' },
-  textoSalir: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
+  nombre: { color: colores.texto, fontSize: 16, fontWeight: '600' },
+  detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
+  botonAgregar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderColor: colores.primario, borderRadius: 16, padding: 16, marginTop: 4 },
+  textoAgregar: { color: colores.primario, fontWeight: '600', fontSize: 16 },
+  botonSalir: { marginTop: 40, alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colores.peligro },
+  textoSalir: { color: colores.peligro, fontWeight: 'bold', fontSize: 16 },
 });

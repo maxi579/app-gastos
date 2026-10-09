@@ -8,16 +8,21 @@ import { Ionicons } from '@expo/vector-icons';
 import type { Session } from '@supabase/supabase-js';
 import { useFonts } from 'expo-font';
 import { Tabs } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Platform, StyleSheet, View, type ColorValue } from 'react-native';
 import PantallaLogin from '../components/PantallaLogin';
 import { ProveedorAvisos } from '../components/Toast';
 import { colores, fuentes } from '../constants/tema';
+import { ProveedorDatos } from '../lib/contextoDatos';
+import { fuenteSupabase } from '../lib/datos';
+import { crearFuenteDemo } from '../lib/demo';
 import { supabase } from '../lib/supabase';
 
 export default function Layout() {
   const [sesion, setSesion] = useState<Session | null>(null);
   const [cargando, setCargando] = useState(true);
+  const [modoDemo, setModoDemo] = useState(false);
   const [fuentesListas] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -35,6 +40,9 @@ export default function Layout() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  // Cada vez que se entra al modo demo arranca con los datos de ejemplo desde cero
+  const fuente = useMemo(() => (modoDemo ? crearFuenteDemo(() => setModoDemo(false)) : fuenteSupabase), [modoDemo]);
+
   let contenido;
   if (cargando || !fuentesListas) {
     contenido = (
@@ -42,30 +50,78 @@ export default function Layout() {
         <ActivityIndicator color={colores.primario} size="large" />
       </View>
     );
-  } else if (!sesion) {
-    contenido = <PantallaLogin />;
+  } else if (!sesion && !modoDemo) {
+    contenido = <PantallaLogin onProbarDemo={() => setModoDemo(true)} />;
   } else {
     contenido = (
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: colores.primario,
-          tabBarInactiveTintColor: colores.textoTenue,
-          tabBarStyle: { backgroundColor: colores.fondo, borderTopColor: colores.superficie },
-          tabBarLabelStyle: { fontFamily: fuentes.semi, fontSize: 11 },
-        }}
-      >
-        <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} /> }} />
-        <Tabs.Screen name="cargar" options={{ title: 'Cargar', tabBarIcon: ({ color, size }) => <Ionicons name="add-circle-outline" color={color} size={size} /> }} />
-        <Tabs.Screen name="cuotas" options={{ title: 'Cuotas', tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" color={color} size={size} /> }} />
-        <Tabs.Screen name="simular" options={{ title: 'Simular', tabBarIcon: ({ color, size }) => <Ionicons name="calculator-outline" color={color} size={size} /> }} />
-        <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} /> }} />
-      </Tabs>
+      <ProveedorDatos fuente={fuente}>
+        <Tabs
+          screenOptions={{
+            headerShown: false,
+            sceneStyle: { backgroundColor: colores.fondo },
+            tabBarActiveTintColor: colores.primario,
+            tabBarInactiveTintColor: colores.textoTenue,
+            tabBarStyle: styles.barra,
+            tabBarLabelStyle: { fontFamily: fuentes.semi, fontSize: 11, lineHeight: 14 },
+          }}
+        >
+          <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: icono('home') }} />
+          <Tabs.Screen name="cuotas" options={{ title: 'Cuotas', tabBarIcon: icono('calendar') }} />
+          <Tabs.Screen
+            name="cargar"
+            options={{
+              title: 'Cargar',
+              tabBarLabel: () => null,
+              tabBarIcon: () => (
+                <View style={styles.botonCargar}>
+                  <Ionicons name="add" size={28} color={colores.sobrePrimario} />
+                </View>
+              ),
+            }}
+          />
+          <Tabs.Screen name="simular" options={{ title: 'Simular', tabBarIcon: icono('calculator') }} />
+          <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: icono('settings') }} />
+        </Tabs>
+      </ProveedorDatos>
     );
   }
-    return (
+
+  return (
     <SafeAreaProvider>
+      <StatusBar style="light" />
       <ProveedorAvisos>{contenido}</ProveedorAvisos>
     </SafeAreaProvider>
   );
 }
+
+// Ícono relleno en la pestaña activa y de contorno en las demás
+function icono(nombre: 'home' | 'calendar' | 'calculator' | 'settings') {
+  function IconoPestana({ color, size, focused }: { color: ColorValue; size: number; focused: boolean }) {
+    return <Ionicons name={focused ? nombre : `${nombre}-outline`} color={color} size={size - 1} />;
+  }
+  return IconoPestana;
+}
+
+const styles = StyleSheet.create({
+  barra: {
+    backgroundColor: colores.superficie,
+    borderTopColor: colores.borde,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    // En la web no hay área segura abajo: le damos un poco más de alto para que entren los textos
+    ...(Platform.OS === 'web' && { height: 62, paddingBottom: 6 }),
+  },
+  botonCargar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    marginTop: 8,
+    backgroundColor: colores.primario,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: colores.primario,
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 8,
+  },
+});
