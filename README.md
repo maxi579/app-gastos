@@ -20,6 +20,10 @@ Hecha con **Expo (React Native) + TypeScript + Supabase**. Funciona en iOS, Andr
 - **Avisos antes del cierre** de cada tarjeta (notificaciones locales, sin servidor).
 - **Dólar tarjeta e inflación del INDEC automáticos** (DolarApi y ArgentinaDatos), guardados en el celular.
 
+**Para que no se te escape ningún gasto**
+- **Recordatorio a la noche**: a las 21 h, solo los días en que no anotaste nada. Al tocarlo se abre directo la pantalla para anotar.
+- **Revisar el resumen de la tarjeta**: subís el PDF, una IA (Claude) lee las compras y la app las compara con lo que ya tenías — te muestra solo lo que te faltaba y lo agregás con un toque. Reconoce compras en cuotas y no duplica lo ya cargado.
+
 **Pensada para cualquiera**
 - Lenguaje simple, primeros pasos guiados y explicaciones donde hacen falta (pensada para que la usen también personas mayores).
 - **Funciona sin internet**: muestra lo último guardado y los gastos nuevos se suben solos cuando vuelve la conexión, sin duplicarse.
@@ -32,6 +36,7 @@ Hecha con **Expo (React Native) + TypeScript + Supabase**. Funciona en iOS, Andr
 | App | Expo SDK 57, React Native, Expo Router, TypeScript |
 | UI | Reanimated, expo-linear-gradient, expo-haptics, expo-notifications |
 | Datos externos | DolarApi, ArgentinaDatos (INDEC) |
+| IA | Claude (Anthropic) vía Supabase Edge Function |
 | Tests | node:test |
 | Backend | Supabase (Auth + PostgreSQL con Row Level Security) |
 
@@ -48,11 +53,14 @@ src/
     ├── decision.ts          # "¿Lo compro?": junta todo en una respuesta
     ├── asistente.ts         # Consejos según tus datos y el tono elegido
     ├── indicadores.ts       # Dólar tarjeta e inflación, con caché
-    ├── avisos.ts            # Notificaciones antes del cierre
+    ├── avisos.ts            # Avisos de cierre y recordatorio de la noche
+    ├── conciliacion.ts      # Compara el resumen de la tarjeta con lo cargado
+    ├── resumen.ts           # Manda el PDF a la función que lo lee
     ├── datos.ts             # Acceso a datos: Supabase + caché y cola sin conexión
     └── demo.ts              # Misma interfaz con datos en memoria (modo demo)
 tests/                       # Tests de la lógica (npm test)
 supabase/schema.sql          # Tablas, índices y políticas RLS
+supabase/functions/leer-resumen/  # Edge Function: lee el PDF del resumen con Claude
 ```
 
 Las pantallas no hablan directo con Supabase: usan una `FuenteDatos`, así el modo demo y el modo real comparten todo el código de la interfaz.
@@ -68,6 +76,19 @@ npx expo start
 ```
 
 Escaneá el QR con **Expo Go** o abrí la versión web con `w`. Los tests de la lógica se corren con `npm test`.
+
+### Activar la lectura de resúmenes (opcional)
+
+La lectura del PDF corre en una Edge Function de Supabase que llama a la API de Claude (Claude Opus 5.5, con salida JSON estructurada). Solo la pueden usar usuarios logueados y el PDF no se guarda.
+
+```bash
+npx supabase login
+npx supabase link --project-ref TU_PROJECT_REF
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+npx supabase functions deploy leer-resumen
+```
+
+Cada resumen leído consume créditos de la API de Anthropic (unos pocos centavos de dólar por resumen). En el modo demo se usa un resumen de ejemplo, sin llamar a la API.
 
 ### Publicar la demo web
 

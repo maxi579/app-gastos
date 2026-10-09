@@ -16,18 +16,26 @@ const MULTIPLICADORES: Record<string, number> = {
 
 const PALABRAS_CATEGORIA: Record<Categoria, string[]> = {
   'Comida y salidas': ['pizza', 'burger', 'hamburguesa', 'restaurant', 'resto', 'bar', 'cafe', 'delivery', 'pedidosya', 'rappi', 'cena', 'almuerzo', 'birra', 'cerveza', 'helado', 'empanadas', 'sushi', 'asado', 'mcdonalds', 'mc'],
-  Supermercado: ['super', 'supermercado', 'coto', 'carrefour', 'chango', 'almacen', 'verduleria', 'carniceria', 'chino'],
-  Transporte: ['uber', 'cabify', 'didi', 'nafta', 'combustible', 'sube', 'colectivo', 'taxi', 'remis', 'peaje', 'estacionamiento'],
+  Supermercado: ['super', 'supermercado', 'coto', 'carrefour', 'chango', 'almacen', 'verduleria', 'carniceria', 'chino', 'jumbo', 'disco', 'vea', 'walmart', 'changomas'],
+  Transporte: ['uber', 'cabify', 'didi', 'nafta', 'combustible', 'sube', 'colectivo', 'taxi', 'remis', 'peaje', 'estacionamiento', 'ypf', 'shell', 'axion', 'puma'],
   Servicios: ['luz', 'gas', 'agua', 'internet', 'telefono', 'alquiler', 'expensas', 'wifi'],
   Compras: ['ropa', 'zapatillas', 'zapas', 'remera', 'campera', 'pantalon', 'mercadolibre', 'regalo', 'tele'],
-  Salud: ['farmacia', 'medico', 'remedios', 'dentista', 'gimnasio', 'gym', 'psicologo'],
-  Entretenimiento: ['cine', 'netflix', 'spotify', 'juego', 'play', 'steam', 'recital', 'entrada', 'boliche', 'disney'],
+  Salud: ['farmacia', 'farmacity', 'medico', 'remedios', 'dentista', 'gimnasio', 'gym', 'psicologo'],
+  Entretenimiento: ['cine', 'cinemark', 'hoyts', 'netflix', 'spotify', 'juego', 'play', 'steam', 'recital', 'entrada', 'entradas', 'boliche', 'disney'],
   Educación: ['libro', 'curso', 'facultad', 'apuntes', 'fotocopias'],
   Otros: [],
 };
 
 export function normalizar(texto: string) {
   return texto.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+// Categoría por palabras clave ("pizza con amigos" → Comida y salidas)
+export function categoriaDe(texto: string): Categoria {
+  const palabras = normalizar(texto).split(/[^a-z0-9]+/);
+  return (
+    (Object.keys(PALABRAS_CATEGORIA) as Categoria[]).find((c) => PALABRAS_CATEGORIA[c].some((p) => palabras.includes(p))) ?? 'Otros'
+  );
 }
 
 export function interpretarGasto(texto: string, medios: MedioPago[]): GastoInterpretado {
@@ -80,12 +88,7 @@ export function interpretarGasto(texto: string, medios: MedioPago[]): GastoInter
     if (!medioId && cuotas > 1 && deCredito.length === 1) medioId = deCredito[0].id;
   }
 
-  // Categoría por palabras clave
-  const palabras = normalizar(texto).split(/[^a-z0-9]+/);
-  const categoria =
-    (Object.keys(PALABRAS_CATEGORIA) as Categoria[]).find((c) =>
-      PALABRAS_CATEGORIA[c].some((p) => palabras.includes(p))
-    ) ?? 'Otros';
+  const categoria = categoriaDe(texto);
 
   // Descripción: lo que sobra, sin conectores ni artículos sueltos al principio o al final
   let descripcion = resto.replace(/\$/g, ' ').replace(/\s+/g, ' ').trim();

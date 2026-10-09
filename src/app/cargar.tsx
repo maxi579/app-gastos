@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -7,6 +7,7 @@ import FormularioGasto from '../components/FormularioGasto';
 import { useAviso } from '../components/Toast';
 import { Boton, Encabezado, Entrada as TextInput, Tarjeta, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
+import { programarRecordatorios } from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
 import { montoATexto } from '../lib/formato';
 import { prepararGasto, type ValoresGasto } from '../lib/gastos';
@@ -52,6 +53,8 @@ export default function Cargar() {
       const resultado = await datos.crearGasto({ ...preparado.fila, texto_original: texto });
       setValores(null);
       setTexto('');
+      // Ya anotó algo hoy: esta noche no hace falta recordárselo
+      if (!datos.esDemo) programarRecordatorios(true).catch(() => {});
       if (resultado === 'pendiente') aviso('Anotado en el celular. Se sube solo cuando haya internet 📶', 'info');
       else aviso('Listo, anotado 👌');
     } catch (e) {
@@ -95,6 +98,19 @@ export default function Cargar() {
             ))}
           </View>
         </View>
+      )}
+
+      {!valores && (
+        <Pressable style={({ pressed }) => [styles.resumen, pressed && { opacity: 0.8 }]} onPress={() => router.push('/resumen')}>
+          <View style={styles.resumenIcono}>
+            <Ionicons name="document-text" size={22} color={colores.primario} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.resumenTitulo}>¿Te olvidaste de anotar algo?</Text>
+            <Text style={styles.resumenTexto}>Subí el resumen de tu tarjeta y te digo qué gastos te faltan.</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={colores.textoTenue} />
+        </Pressable>
       )}
 
       {valores && (
@@ -143,6 +159,20 @@ const styles = StyleSheet.create({
     borderColor: colores.borde,
   },
   textoEjemplo: { color: colores.textoChip, fontSize: 14 },
+  resumen: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    padding: 16,
+    marginTop: 28,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  resumenIcono: { width: 44, height: 44, borderRadius: 14, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  resumenTitulo: { color: colores.texto, fontSize: 16, fontWeight: '700' },
+  resumenTexto: { color: colores.textoSecundario, fontSize: 14, marginTop: 2, lineHeight: 20 },
   encabezadoResultado: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   tituloResultado: { color: colores.primario, fontSize: 14, fontWeight: '600' },
 });

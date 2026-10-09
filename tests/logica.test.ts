@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { consejos } from '../src/lib/asistente';
+import { limpiarDescripcion, revisarMovimientos } from '../src/lib/conciliacion';
 import { evaluarCompra } from '../src/lib/decision';
 import { deudaPendiente, diaDeLibertad, fechaDePago, proximoCierre, tarjetasParaHoy } from '../src/lib/finanzas';
 import { interpretarGasto } from '../src/lib/interpretarGasto';
@@ -120,5 +121,48 @@ describe('carga en lenguaje natural', () => {
     assert.equal(interpretarGasto('pizza 18 lucas', []).monto, 18_000);
     assert.equal(interpretarGasto('uber 7500 efectivo', [visa]).medioId, null);
     assert.equal(interpretarGasto('spotify 5 dolares', []).moneda, 'USD');
+  });
+});
+
+describe('revisar el resumen', () => {
+  const cargado = (descripcion: string, monto: number, cuotas: number, fecha: string) => ({
+    ...gasto(cuotas, '2026-10-01', monto, { descripcion, fecha_compra: fecha }),
+    tarjetas: null,
+  });
+  const yaCargados = [cargado('Super', 48_350, 1, '2026-10-08'), cargado('Zapas', 120_000, 6, '2026-10-02')];
+  const mov = (fecha: string, descripcion: string, monto: number, cuota = 1, total = 1) =>
+    ({ fecha, descripcion, monto, moneda: 'ARS' as const, cuota_actual: cuota, cuotas_totales: total });
+
+  it('reconoce los que ya estaban (por total o por cuota, con fechas cercanas) y propone los que faltan', () => {
+    const r = revisarMovimientos(
+      [
+        mov('2026-10-09', 'COTO SUC 45', 48_350), // mismo monto, un día de diferencia
+        mov('2026-10-02', 'MERPAGO*ZAPATERIA', 20_000, 1, 6), // cuota de 20.000 de un total de 120.000
+        mov('2026-10-05', 'YPF SERVICENTRO', 35_000), // no estaba
+        mov('2026-09-01', 'COTO SUC 45', 48_350), // mismo monto pero un mes antes: no es el mismo
+      ],
+      yaCargados,
+      visa
+    );
+    assert.deepEqual(r.map((x) => x.cargado?.descripcion ?? null), ['Super', 'Zapas', null, null]);
+    assert.equal(r[2].fila.monto_total, 35_000);
+    assert.equal(r[2].fila.tarjeta_id, 'v');
+    assert.equal(r[2].fila.primer_mes_cuota, '2026-11-01'); // con la Visa (cierre 24, vence 5) se paga en noviembre
+  });
+
+  it('una compra en cuotas se carga por el total, con la fecha original', () => {
+    const [r] = revisarMovimientos([mov('2026-08-15', 'MERPAGO*HELADERA', 80_000, 3, 9)], [], visa);
+    assert.deepEqual([r.fila.monto_total, r.fila.cantidad_cuotas, r.fila.fecha_compra], [720_000, 9, '2026-08-15']);
+  });
+
+  it('no usa el mismo gasto cargado para dos renglones iguales', () => {
+    const r = revisarMovimientos([mov('2026-10-08', 'COTO', 48_350), mov('2026-10-08', 'COTO', 48_350)], yaCargados, visa);
+    assert.deepEqual(r.map((x) => x.cargado !== null), [true, false]);
+  });
+
+  it('limpia los nombres de los comercios', () => {
+    assert.equal(limpiarDescripcion('MERPAGO*PIZZERIA  LA OLLA'), 'Pizzeria La Olla');
+    assert.equal(limpiarDescripcion('NETFLIX.COM'), 'Netflix.com');
+    assert.equal(limpiarDescripcion('YPF SERVICENTRO'), 'YPF Servicentro');
   });
 });

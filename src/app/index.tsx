@@ -10,7 +10,7 @@ import { Boton, confirmar, Encabezado, Texto as Text } from '../components/ui';
 import { estiloCategoria } from '../constants/categorias';
 import { colores, colorSegunPorcentaje, degradados, radios, tipografia } from '../constants/tema';
 import { consejos, emojiDe, TONOS } from '../lib/asistente';
-import { programarAvisosCierre } from '../lib/avisos';
+import { avisosDisponibles, programarAvisosCierre, programarRecordatorios, recordatorioActivado } from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
 import type { GastoConMedio, Perfil } from '../lib/datos';
 import {
@@ -50,6 +50,7 @@ export default function Inicio() {
   const [edicion, setEdicion] = useState<Edicion | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
+  const [conRecordatorio, setConRecordatorio] = useState(true);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -60,7 +61,12 @@ export default function Inicio() {
       setMeses(proyectarCuotas(todos, new Date(), 2));
       setMedios(listaMedios);
       setCargado(true);
-      if (!datos.esDemo) programarAvisosCierre(listaMedios).catch(() => {});
+      if (!datos.esDemo) {
+        programarAvisosCierre(listaMedios).catch(() => {});
+        const hoyTexto = formatearFecha(new Date());
+        programarRecordatorios(todos.some((g) => g.fecha_compra === hoyTexto)).catch(() => {});
+        recordatorioActivado().then(setConRecordatorio);
+      }
     } catch (e) {
       aviso(`No se pudieron cargar tus datos. ${(e as Error).message}`, 'error');
     }
@@ -137,6 +143,9 @@ export default function Inicio() {
     { hecho: sueldo !== null, texto: 'Contame cuánto cobrás por mes', destino: '/ajustes' as Href },
     { hecho: medios.length > 0, texto: 'Agregá tu tarjeta o billetera', destino: '/ajustes' as Href },
     { hecho: gastos.length > 0, texto: 'Anotá tu primer gasto', destino: '/cargar' as Href },
+    ...(avisosDisponibles && !datos.esDemo
+      ? [{ hecho: conRecordatorio, texto: 'Activá el recordatorio de la noche', destino: '/ajustes' as Href }]
+      : []),
   ];
   const faltanPasos = cargado && pasos.some((p) => !p.hecho);
 

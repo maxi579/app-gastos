@@ -7,13 +7,14 @@ import { PlusJakartaSans_800ExtraBold } from '@expo-google-fonts/plus-jakarta-sa
 import { Ionicons } from '@expo/vector-icons';
 import type { Session } from '@supabase/supabase-js';
 import { useFonts } from 'expo-font';
-import { Tabs } from 'expo-router';
+import { router, Tabs } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View, type ColorValue } from 'react-native';
 import PantallaLogin from '../components/PantallaLogin';
 import { ProveedorAvisos } from '../components/Toast';
 import { colores, fuentes } from '../constants/tema';
+import { escucharToques } from '../lib/avisos';
 import { ProveedorDatos } from '../lib/contextoDatos';
 import { fuenteSupabase } from '../lib/datos';
 import { crearFuenteDemo } from '../lib/demo';
@@ -40,6 +41,13 @@ export default function Layout() {
     const { data } = supabase.auth.onAuthStateChange((_evento, nuevaSesion) => setSesion(nuevaSesion));
     return () => data.subscription.unsubscribe();
   }, []);
+
+  // Tocar el recordatorio de la noche abre directo la pantalla para anotar
+  const listo = !cargando && (sesion !== null || modoDemo);
+  useEffect(() => {
+    if (!listo) return;
+    return escucharToques((url) => router.push(url as Parameters<typeof router.push>[0]));
+  }, [listo]);
 
   // Cada vez que se entra al modo demo arranca con los datos de ejemplo desde cero.
   // En la versión solo demo, "salir" vuelve a empezar con los datos originales.
@@ -88,6 +96,8 @@ export default function Layout() {
           />
           <Tabs.Screen name="comprar" options={{ title: 'Comprar', tabBarIcon: icono('bag-check') }} />
           <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: icono('settings') }} />
+          {/* Pantalla sin pestaña: se abre desde Cargar */}
+          <Tabs.Screen name="resumen" options={{ href: null, title: 'Revisar resumen' }} />
         </Tabs>
       </ProveedorDatos>
     );

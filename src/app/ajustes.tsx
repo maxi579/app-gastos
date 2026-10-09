@@ -7,9 +7,18 @@ import { useAviso } from '../components/Toast';
 import { confirmar, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
 import { TONOS } from '../lib/asistente';
-import { activarAvisos, avisosActivados, avisosDisponibles, desactivarAvisos, programarAvisosCierre } from '../lib/avisos';
+import {
+  activarAvisos,
+  activarRecordatorio,
+  avisosActivados,
+  avisosDisponibles,
+  desactivarAvisos,
+  desactivarRecordatorio,
+  programarAvisosCierre,
+  recordatorioActivado,
+} from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
-import { formatearMonto } from '../lib/finanzas';
+import { formatearFecha, formatearMonto } from '../lib/finanzas';
 import { formatearEntradaMonto, leerMonto, montoATexto } from '../lib/formato';
 import { mesDeInflacion, useIndicadores } from '../lib/indicadores';
 import { soloDemo } from '../lib/supabase';
@@ -25,9 +34,11 @@ export default function Ajustes() {
   const [sueldoTexto, setSueldoTexto] = useState('');
   const [tono, setTono] = useState<Tono>('directo');
   const [avisos, setAvisos] = useState(false);
+  const [recordatorio, setRecordatorio] = useState(false);
 
   useEffect(() => {
     avisosActivados().then(setAvisos);
+    recordatorioActivado().then(setRecordatorio);
   }, []);
 
   const cargar = useCallback(async () => {
@@ -87,6 +98,20 @@ export default function Ajustes() {
     const ok = await activarAvisos(medios);
     setAvisos(ok);
     if (ok) aviso('Te aviso un día antes de cada cierre 🔔');
+    else aviso('No tengo permiso para avisarte. Activalo en la configuración del celular.', 'error');
+  }
+
+  async function cambiarRecordatorio(activar: boolean) {
+    if (!activar) {
+      await desactivarRecordatorio();
+      setRecordatorio(false);
+      return aviso('Listo, no te voy a recordar', 'info');
+    }
+    const hoy = formatearFecha(new Date());
+    const anotoHoy = (await datos.gastos().catch(() => [])).some((g) => g.fecha_compra === hoy);
+    const ok = await activarRecordatorio(anotoHoy);
+    setRecordatorio(ok);
+    if (ok) aviso('Te aviso a las 21 h los días que no anotes nada 📝');
     else aviso('No tengo permiso para avisarte. Activalo en la configuración del celular.', 'error');
   }
 
@@ -219,6 +244,24 @@ export default function Ajustes() {
       {avisosDisponibles && (
         <>
           <Text style={[styles.seccion, styles.separada]}>Avisos</Text>
+          <View style={styles.tarjeta}>
+            <View style={styles.iconoMedio}>
+              <Ionicons name="moon" size={20} color={colores.primario} />
+            </View>
+            <View style={styles.info}>
+              <Text style={styles.nombre}>Recordarme a la noche</Text>
+              <Text style={styles.detalle}>
+                {datos.esDemo ? 'No disponible en el modo de prueba.' : 'A las 21 h, solo los días que no anotaste ningún gasto.'}
+              </Text>
+            </View>
+            <Switch
+              value={recordatorio}
+              onValueChange={cambiarRecordatorio}
+              disabled={datos.esDemo}
+              trackColor={{ true: colores.primario, false: colores.borde }}
+              thumbColor={colores.texto}
+            />
+          </View>
           <View style={styles.tarjeta}>
             <View style={styles.iconoMedio}>
               <Ionicons name="notifications" size={20} color={colores.primario} />
