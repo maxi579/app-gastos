@@ -17,12 +17,12 @@ import { colores, fuentes } from '../constants/tema';
 import { ProveedorDatos } from '../lib/contextoDatos';
 import { fuenteSupabase } from '../lib/datos';
 import { crearFuenteDemo } from '../lib/demo';
-import { supabase } from '../lib/supabase';
+import { soloDemo, supabase } from '../lib/supabase';
 
 export default function Layout() {
   const [sesion, setSesion] = useState<Session | null>(null);
-  const [cargando, setCargando] = useState(true);
-  const [modoDemo, setModoDemo] = useState(false);
+  const [cargando, setCargando] = useState(!soloDemo);
+  const [modoDemo, setModoDemo] = useState(soloDemo);
   const [fuentesListas] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -32,6 +32,7 @@ export default function Layout() {
   });
 
   useEffect(() => {
+    if (soloDemo) return;
     supabase.auth.getSession().then(({ data }) => {
       setSesion(data.session);
       setCargando(false);
@@ -40,8 +41,14 @@ export default function Layout() {
     return () => data.subscription.unsubscribe();
   }, []);
 
-  // Cada vez que se entra al modo demo arranca con los datos de ejemplo desde cero
-  const fuente = useMemo(() => (modoDemo ? crearFuenteDemo(() => setModoDemo(false)) : fuenteSupabase), [modoDemo]);
+  // Cada vez que se entra al modo demo arranca con los datos de ejemplo desde cero.
+  // En la versión solo demo, "salir" vuelve a empezar con los datos originales.
+  const [reinicios, setReinicios] = useState(0);
+  const fuente = useMemo(
+    () => (modoDemo ? crearFuenteDemo(() => (soloDemo ? setReinicios((n) => n + 1) : setModoDemo(false))) : fuenteSupabase),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [modoDemo, reinicios]
+  );
 
   let contenido;
   if (cargando || !fuentesListas) {

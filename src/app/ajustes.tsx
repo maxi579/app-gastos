@@ -7,6 +7,7 @@ import { useAviso } from '../components/Toast';
 import { confirmar, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
 import { useDatos } from '../lib/contextoDatos';
+import { soloDemo } from '../lib/supabase';
 import { formatearEntradaMonto, leerMonto, montoATexto } from '../lib/formato';
 import type { MedioPago } from '../lib/tipos';
 
@@ -152,7 +153,7 @@ export default function Ajustes() {
       )}
 
       <Pressable style={styles.botonSalir} onPress={() => datos.salir()}>
-        <Text style={styles.textoSalir}>{datos.esDemo ? 'Salir del modo demo' : 'Cerrar sesión'}</Text>
+        <Text style={styles.textoSalir}>{soloDemo ? 'Reiniciar la demo' : datos.esDemo ? 'Salir del modo demo' : 'Cerrar sesión'}</Text>
       </Pressable>
     </ScrollView>
   );

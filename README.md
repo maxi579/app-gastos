@@ -4,6 +4,8 @@ App móvil para llevar el control de gastos con tarjeta en Argentina: **cuánto 
 
 Hecha con **Expo (React Native) + TypeScript + Supabase**. Funciona en iOS, Android y web.
 
+🔗 **Probala online (modo demo, sin cuenta):** [maxi579.github.io/app-gastos](https://maxi579.github.io/app-gastos/)
+
 ## Funcionalidades
 
 - **Carga en lenguaje natural**: escribís *"zapas 120k en 6 cuotas con visa"* y la app detecta monto, cuotas, moneda, tarjeta y categoría (entiende "lucas", "k", "palos", dólares, efectivo, Mercado Pago…).
@@ -50,7 +52,15 @@ npm install
 npx expo start
 ```
 
-Escaneá el QR con **Expo Go** o abrí la versión web con `w`. La base de datos se crea con [`supabase/schema.sql`](supabase/schema.sql).
+Escaneá el QR con **Expo Go** o abrí la versión web con `w`.
+
+### Publicar la demo web
+
+```bash
+EXPO_NO_DOTENV=1 EXPO_PUBLIC_SOLO_DEMO=true EXPO_BASE_URL=/app-gastos npx expo export --platform web
+```
+
+Genera `dist/` con la app en modo demo y sin datos de Supabase, lista para GitHub Pages. La base de datos se crea con [`supabase/schema.sql`](supabase/schema.sql).
 
 ---
 
