@@ -3,13 +3,27 @@
 // Desplegar:   npx supabase functions deploy leer-resumen
 // Clave de IA: npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 //
-// Supabase verifica el usuario (JWT) antes de llegar acá: solo pueden usarla usuarios logueados.
+// Solo la pueden usar usuarios logueados: la clave pública de la app no alcanza (ver usuarioDelPedido).
 // El PDF no se guarda en ningún lado: se lee, se manda a Claude y se descarta.
 
 import Anthropic from 'npm:@anthropic-ai/sdk';
+import { createClient } from 'npm:@supabase/supabase-js@2';
 import { encodeBase64 } from 'jsr:@std/encoding/base64';
 
 const client = new Anthropic(); // toma ANTHROPIC_API_KEY de los secretos de Supabase
+
+// SUPABASE_URL y SUPABASE_ANON_KEY los define Supabase automáticamente en cada función
+const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '');
+
+// La pasarela de Supabase deja pasar cualquier pedido con la clave pública de la app,
+// que viene dentro de la app y cualquiera puede sacar. Para no gastar la clave de IA en
+// pedidos anónimos, exigimos la sesión de un usuario real.
+async function usuarioDelPedido(pedido: Request) {
+  const token = pedido.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  const { data, error } = await supabase.auth.getUser(token);
+  return error ? null : data.user;
+}
 
 const TAMANIO_MAXIMO = 10 * 1024 * 1024;
 
@@ -89,6 +103,11 @@ function esValido(m: Movimiento) {
 Deno.serve(async (pedido) => {
   if (pedido.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (pedido.method !== 'POST') return responder({ error: 'Método no permitido.' }, 405);
+  if (!Deno.env.get('SUPABASE_URL') || !Deno.env.get('SUPABASE_ANON_KEY')) {
+    console.error('Faltan SUPABASE_URL o SUPABASE_ANON_KEY en el entorno de la función');
+    return responder({ error: 'La lectura de resúmenes no está bien configurada.' }, 500);
+  }
+  if (!(await usuarioDelPedido(pedido))) return responder({ error: 'Tenés que iniciar sesión.' }, 401);
 
   let archivo: File;
   try {
