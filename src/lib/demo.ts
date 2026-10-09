@@ -1,24 +1,38 @@
 import type { FilaGasto, FuenteDatos, GastoConMedio } from './datos';
 import { calcularPrimerMesCuota, formatearFecha } from './finanzas';
-import type { Categoria, MedioPago } from './tipos';
+import type { Categoria, MedioPago, Tono } from './tipos';
 
 // Modo demo: los mismos datos que tendría un usuario real, pero en memoria.
 // Sirve para probar la app sin cuenta (y para mostrarla en el portfolio).
 
 type GastoEjemplo = { descripcion: string; categoria: Categoria; monto: number; cuotas?: number; medio: string | null; haceDias: number; moneda?: 'ARS' | 'USD' };
 
-const MEDIOS: MedioPago[] = [
-  { id: 'visa', nombre: 'Visa Galicia', banco: 'Galicia', tipo: 'credito', red: 'visa', dia_cierre: 24, dia_vencimiento: 5 },
-  { id: 'master', nombre: 'Master BBVA', banco: 'BBVA', tipo: 'credito', red: 'mastercard', dia_cierre: 20, dia_vencimiento: 2 },
-  { id: 'mp', nombre: 'Mercado Pago', banco: 'Mercado Pago', tipo: 'debito', red: null, dia_cierre: null, dia_vencimiento: null },
-];
+// Los cierres se calculan desde hoy para que la demo siempre muestre los avisos:
+// la Visa cierra mañana y la Master a mitad de mes que viene.
+function crearMedios(): MedioPago[] {
+  const enDias = (dias: number) => {
+    const fecha = new Date();
+    fecha.setDate(fecha.getDate() + dias);
+    return Math.min(fecha.getDate(), 28);
+  };
+  const cierreVisa = enDias(1);
+  const cierreMaster = enDias(15);
+  const vencimiento = (cierre: number) => ((cierre + 9) % 28) + 1;
+  return [
+    { id: 'visa', nombre: 'Visa Galicia', banco: 'Galicia', tipo: 'credito', red: 'visa', dia_cierre: cierreVisa, dia_vencimiento: vencimiento(cierreVisa) },
+    { id: 'master', nombre: 'Master BBVA', banco: 'BBVA', tipo: 'credito', red: 'mastercard', dia_cierre: cierreMaster, dia_vencimiento: vencimiento(cierreMaster) },
+    { id: 'mp', nombre: 'Mercado Pago', banco: 'Mercado Pago', tipo: 'debito', red: null, dia_cierre: null, dia_vencimiento: null },
+  ];
+}
 
 const GASTOS: GastoEjemplo[] = [
   { descripcion: 'Super Coto', categoria: 'Supermercado', monto: 48_350, medio: 'visa', haceDias: 0 },
   { descripcion: 'Uber al centro', categoria: 'Transporte', monto: 7_800, medio: 'mp', haceDias: 0 },
   { descripcion: 'Pizza con amigos', categoria: 'Comida y salidas', monto: 18_500, medio: 'mp', haceDias: 1 },
   { descripcion: 'Zapatillas', categoria: 'Compras', monto: 189_000, cuotas: 6, medio: 'visa', haceDias: 2 },
+  { descripcion: 'Café con medialunas', categoria: 'Comida y salidas', monto: 9_200, medio: 'mp', haceDias: 2 },
   { descripcion: 'Farmacia', categoria: 'Salud', monto: 23_400, medio: 'master', haceDias: 3 },
+  { descripcion: 'Empanadas', categoria: 'Comida y salidas', monto: 14_000, medio: 'mp', haceDias: 4 },
   { descripcion: 'Netflix', categoria: 'Entretenimiento', monto: 11_999, medio: 'visa', haceDias: 5 },
   { descripcion: 'Luz', categoria: 'Servicios', monto: 32_700, medio: 'mp', haceDias: 6 },
   { descripcion: 'Curso de inglés', categoria: 'Educación', monto: 95_000, cuotas: 3, medio: 'master', haceDias: 9 },
@@ -29,11 +43,11 @@ const GASTOS: GastoEjemplo[] = [
   { descripcion: 'Heladera', categoria: 'Compras', monto: 720_000, cuotas: 9, medio: 'master', haceDias: 75 },
 ];
 
-function crearGastosIniciales(): GastoConMedio[] {
+function crearGastosIniciales(medios: MedioPago[]): GastoConMedio[] {
   return GASTOS.map((g, i) => {
     const fecha = new Date();
     fecha.setDate(fecha.getDate() - g.haceDias);
-    const medio = MEDIOS.find((m) => m.id === g.medio) ?? null;
+    const medio = medios.find((m) => m.id === g.medio) ?? null;
     return {
       id: `demo-${i}`,
       descripcion: g.descripcion,
@@ -50,9 +64,10 @@ function crearGastosIniciales(): GastoConMedio[] {
 }
 
 export function crearFuenteDemo(alSalir: () => void): FuenteDatos {
-  let medios = MEDIOS.map((m) => ({ ...m }));
-  let gastos = crearGastosIniciales();
+  let medios = crearMedios();
+  let gastos = crearGastosIniciales(medios);
   let sueldo: number | null = 1_500_000;
+  let tono: Tono = 'amable';
   let siguienteId = 1;
 
   const conMedio = (id: string, fila: FilaGasto): GastoConMedio => {
@@ -64,10 +79,13 @@ export function crearFuenteDemo(alSalir: () => void): FuenteDatos {
   return {
     esDemo: true,
     async perfil() {
-      return { nombre: 'Invitado', sueldo };
+      return { nombre: 'Invitado', sueldo, tono };
     },
     async guardarSueldo(valor) {
       sueldo = valor;
+    },
+    async guardarTono(valor) {
+      tono = valor;
     },
     async gastos() {
       return gastos.map((g) => ({ ...g }));
@@ -75,6 +93,7 @@ export function crearFuenteDemo(alSalir: () => void): FuenteDatos {
     async crearGasto(fila) {
       gastos.unshift(conMedio(`nuevo-${siguienteId++}`, fila));
       ordenar();
+      return 'guardado';
     },
     async actualizarGasto(id, fila) {
       gastos = gastos.map((g) => (g.id === id ? conMedio(id, fila) : g));

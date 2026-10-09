@@ -33,11 +33,11 @@ export default function FormularioGasto({
 
   return (
     <View>
-      <Campo etiqueta="Descripción" value={valores.descripcion} onChangeText={(v) => cambiar({ descripcion: v })} />
+      <Campo etiqueta="¿Qué compraste?" value={valores.descripcion} onChangeText={(v) => cambiar({ descripcion: v })} />
 
       <View style={styles.fila}>
         <Campo
-          etiqueta="Monto total"
+          etiqueta="¿Cuánto fue en total?"
           contenedor={{ flex: 2 }}
           value={valores.montoTexto}
           onChangeText={(v) => cambiar({ montoTexto: formatearEntradaMonto(v) })}
@@ -65,7 +65,7 @@ export default function FormularioGasto({
         <Chip etiqueta="Dólares" activo={valores.moneda === 'USD'} onPress={() => cambiar({ moneda: 'USD' })} />
       </View>
 
-      <Etiqueta>Medio de pago</Etiqueta>
+      <Etiqueta>¿Con qué pagaste?</Etiqueta>
       <View style={styles.chips}>
         {medios.map((m) => (
           <Chip key={m.id} etiqueta={m.nombre} activo={valores.medioId === m.id} onPress={() => cambiar({ medioId: m.id })} />

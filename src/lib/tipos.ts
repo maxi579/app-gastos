@@ -35,3 +35,4 @@ export type GastoGuardado = {
   fecha_compra: string;
   tarjeta_id: string | null;
 };
+export type Tono = 'amable' | 'directo' | 'estricto';

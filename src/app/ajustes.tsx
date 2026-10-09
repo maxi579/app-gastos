@@ -1,33 +1,64 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import FormularioMedioPago from '../components/FormularioMedioPago';
 import { useAviso } from '../components/Toast';
 import { confirmar, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
+import { TONOS } from '../lib/asistente';
+import { activarAvisos, avisosActivados, avisosDisponibles, desactivarAvisos, programarAvisosCierre } from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
-import { soloDemo } from '../lib/supabase';
+import { formatearMonto } from '../lib/finanzas';
 import { formatearEntradaMonto, leerMonto, montoATexto } from '../lib/formato';
-import type { MedioPago } from '../lib/tipos';
+import { mesDeInflacion, useIndicadores } from '../lib/indicadores';
+import { soloDemo } from '../lib/supabase';
+import type { MedioPago, Tono } from '../lib/tipos';
 
 export default function Ajustes() {
   const datos = useDatos();
   const aviso = useAviso();
+  const indicadores = useIndicadores();
   const [medios, setMedios] = useState<MedioPago[]>([]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [sueldoTexto, setSueldoTexto] = useState('');
+  const [tono, setTono] = useState<Tono>('directo');
+  const [avisos, setAvisos] = useState(false);
 
   useEffect(() => {
-    datos.perfil().then((perfil) => {
+    avisosActivados().then(setAvisos);
+  }, []);
+
+  const cargar = useCallback(async () => {
+    try {
+      const [perfil, lista] = await Promise.all([datos.perfil(), datos.medios()]);
       if (perfil.sueldo) setSueldoTexto(montoATexto(perfil.sueldo));
-    });
-  }, [datos]);
+      setTono(perfil.tono);
+      setMedios(lista);
+      return lista;
+    } catch (e) {
+      aviso((e as Error).message, 'error');
+      return null;
+    }
+  }, [datos, aviso]);
+
+  // Recarga al volver a la pestaña, por si cambió algo en otra pantalla
+  useFocusEffect(
+    useCallback(() => {
+      cargar();
+    }, [cargar])
+  );
+
+  // Cada vez que cambian las tarjetas, reprograma los avisos de cierre
+  async function recargarMedios() {
+    const lista = await cargar();
+    if (lista && !datos.esDemo) programarAvisosCierre(lista).catch(() => {});
+  }
 
   async function guardarSueldo() {
     const sueldo = leerMonto(sueldoTexto);
-    if (!(sueldo > 0)) return aviso('Ingresá un monto válido', 'error');
+    if (!(sueldo > 0)) return aviso('Escribí cuánto cobrás por mes', 'error');
     try {
       await datos.guardarSueldo(sueldo);
       aviso('Sueldo guardado ✓');
@@ -36,31 +67,39 @@ export default function Ajustes() {
     }
   }
 
-  const cargarMedios = useCallback(async () => {
+  async function elegirTono(nuevo: Tono) {
+    const anterior = tono;
+    setTono(nuevo);
     try {
-      setMedios(await datos.medios());
+      await datos.guardarTono(nuevo);
     } catch (e) {
+      setTono(anterior);
       aviso((e as Error).message, 'error');
     }
-  }, [datos, aviso]);
+  }
 
-  // Recarga al volver a la pestaña, por si cambió algo en otra pantalla
-  useFocusEffect(
-    useCallback(() => {
-      cargarMedios();
-    }, [cargarMedios])
-  );
+  async function cambiarAvisos(activar: boolean) {
+    if (!activar) {
+      await desactivarAvisos();
+      setAvisos(false);
+      return aviso('Listo, no te voy a avisar', 'info');
+    }
+    const ok = await activarAvisos(medios);
+    setAvisos(ok);
+    if (ok) aviso('Te aviso un día antes de cada cierre 🔔');
+    else aviso('No tengo permiso para avisarte. Activalo en la configuración del celular.', 'error');
+  }
 
   function confirmarBorrado(medio: MedioPago) {
     confirmar(
-      'Eliminar medio de pago',
-      `¿Eliminar "${medio.nombre}"? Los gastos que tenga asociados se conservan, pero sin medio de pago.`,
-      'Eliminar',
+      'Borrar tarjeta',
+      `¿Borrar "${medio.nombre}"? Los gastos que hiciste con ella no se borran.`,
+      'Borrar',
       async () => {
         try {
           await datos.borrarMedio(medio.id);
-          aviso('Medio de pago eliminado');
-          cargarMedios();
+          aviso('Tarjeta borrada');
+          recargarMedios();
         } catch (e) {
           aviso((e as Error).message, 'error');
         }
@@ -72,7 +111,8 @@ export default function Ajustes() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
       <Encabezado titulo="Ajustes" />
 
-      <Text style={styles.seccion}>Tu sueldo mensual</Text>
+      <Text style={styles.seccion}>¿Cuánto cobrás por mes?</Text>
+      <Text style={styles.pista}>Lo uso para decirte qué parte de tu sueldo ya está ocupada.</Text>
       <View style={styles.filaSueldo}>
         <TextInput
           style={styles.inputSueldo}
@@ -81,14 +121,16 @@ export default function Ajustes() {
           placeholder="Ej: 600.000"
           keyboardType="number-pad"
         />
-        <Pressable style={styles.botonSueldo} onPress={guardarSueldo}>
+        <Pressable style={({ pressed }) => [styles.botonSueldo, pressed && { opacity: 0.8 }]} onPress={guardarSueldo}>
           <Text style={styles.textoBotonSueldo}>Guardar</Text>
         </Pressable>
       </View>
 
-      <Text style={styles.seccion}>Mis medios de pago</Text>
-      {medios.length > 0 && <Text style={styles.pista}>Tocá un medio para editarlo.</Text>}
-      {medios.length === 0 && !mostrarFormulario && <Text style={styles.vacio}>Todavía no cargaste ninguno.</Text>}
+      <Text style={styles.seccion}>Tus tarjetas y billeteras</Text>
+      {medios.length > 0 && <Text style={styles.pista}>Tocá una para cambiarla.</Text>}
+      {medios.length === 0 && !mostrarFormulario && (
+        <Text style={styles.pista}>Agregá las tarjetas con las que pagás. Así sé cuándo vence cada cuota.</Text>
+      )}
 
       {medios.map((medio) =>
         editandoId === medio.id ? (
@@ -98,7 +140,7 @@ export default function Ajustes() {
             onGuardado={() => {
               setEditandoId(null);
               aviso('Cambios guardados ✓');
-              cargarMedios();
+              recargarMedios();
             }}
             onCancelar={() => setEditandoId(null)}
           />
@@ -123,8 +165,8 @@ export default function Ajustes() {
                 {medio.banco ? ` · ${medio.banco}` : ''}
               </Text>
             </View>
-            <Pressable onPress={() => confirmarBorrado(medio)} hitSlop={10}>
-              <Ionicons name="trash-outline" size={20} color={colores.textoTenue} />
+            <Pressable onPress={() => confirmarBorrado(medio)} hitSlop={12} accessibilityLabel={`Borrar ${medio.nombre}`}>
+              <Ionicons name="trash-outline" size={22} color={colores.textoTenue} />
             </Pressable>
           </Pressable>
         )
@@ -134,26 +176,86 @@ export default function Ajustes() {
         <FormularioMedioPago
           onGuardado={() => {
             setMostrarFormulario(false);
-            aviso('Medio de pago agregado ✓');
-            cargarMedios();
+            aviso('Tarjeta agregada ✓');
+            recargarMedios();
           }}
           onCancelar={() => setMostrarFormulario(false)}
         />
       ) : (
         <Pressable
-          style={styles.botonAgregar}
+          style={({ pressed }) => [styles.botonAgregar, pressed && { opacity: 0.7 }]}
           onPress={() => {
             setEditandoId(null);
             setMostrarFormulario(true);
           }}
         >
           <Ionicons name="add" size={20} color={colores.primario} />
-          <Text style={styles.textoAgregar}>Agregar medio de pago</Text>
+          <Text style={styles.textoAgregar}>Agregar tarjeta o billetera</Text>
         </Pressable>
       )}
 
-      <Pressable style={styles.botonSalir} onPress={() => datos.salir()}>
-        <Text style={styles.textoSalir}>{soloDemo ? 'Reiniciar la demo' : datos.esDemo ? 'Salir del modo demo' : 'Cerrar sesión'}</Text>
+      <Text style={[styles.seccion, styles.separada]}>¿Cómo querés que te hable el asistente?</Text>
+      <View style={{ gap: 8 }}>
+        {TONOS.map((t) => (
+          <Pressable
+            key={t.valor}
+            style={({ pressed }) => [styles.tono, tono === t.valor && styles.tonoActivo, pressed && { opacity: 0.8 }]}
+            onPress={() => elegirTono(t.valor)}
+          >
+            <Text style={styles.tonoEmoji}>{t.emoji}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nombre}>{t.nombre}</Text>
+              <Text style={styles.detalle}>{t.descripcion}</Text>
+            </View>
+            <Ionicons
+              name={tono === t.valor ? 'radio-button-on' : 'radio-button-off'}
+              size={22}
+              color={tono === t.valor ? colores.primario : colores.textoTenue}
+            />
+          </Pressable>
+        ))}
+      </View>
+
+      {avisosDisponibles && (
+        <>
+          <Text style={[styles.seccion, styles.separada]}>Avisos</Text>
+          <View style={styles.tarjeta}>
+            <View style={styles.iconoMedio}>
+              <Ionicons name="notifications" size={20} color={colores.primario} />
+            </View>
+            <View style={styles.info}>
+              <Text style={styles.nombre}>Avisarme antes del cierre</Text>
+              <Text style={styles.detalle}>
+                {datos.esDemo ? 'No disponible en el modo de prueba.' : 'Te aviso un día antes de que cierre cada tarjeta.'}
+              </Text>
+            </View>
+            <Switch
+              value={avisos}
+              onValueChange={cambiarAvisos}
+              disabled={datos.esDemo}
+              trackColor={{ true: colores.primario, false: colores.borde }}
+              thumbColor={colores.texto}
+            />
+          </View>
+        </>
+      )}
+
+      <Text style={[styles.seccion, styles.separada]}>Datos de hoy</Text>
+      <View style={styles.datosHoy}>
+        <Text style={styles.detalleGrande}>
+          💵 Dólar tarjeta: {indicadores.dolarTarjeta ? formatearMonto(indicadores.dolarTarjeta) : 'sin datos'}
+        </Text>
+        <Text style={styles.detalleGrande}>
+          📈 Inflación{' '}
+          {indicadores.ultimaInflacion
+            ? `de ${mesDeInflacion(indicadores.ultimaInflacion.mes)}: ${String(indicadores.ultimaInflacion.valor).replace('.', ',')}%`
+            : ': sin datos (uso 2% por mes)'}
+        </Text>
+        <Text style={styles.fuente}>Se actualizan solos (fuentes: DolarApi y ArgentinaDatos, con datos del INDEC).</Text>
+      </View>
+
+      <Pressable style={({ pressed }) => [styles.botonSalir, pressed && { opacity: 0.7 }]} onPress={() => datos.salir()}>
+        <Text style={styles.textoSalir}>{soloDemo ? 'Volver a empezar la prueba' : datos.esDemo ? 'Salir del modo de prueba' : 'Cerrar sesión'}</Text>
       </Pressable>
     </ScrollView>
   );
@@ -162,20 +264,64 @@ export default function Ajustes() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 20, paddingTop: 0, paddingBottom: 40 },
-  seccion: { color: colores.texto, fontSize: 20, fontWeight: 'bold', marginBottom: 12 },
-  pista: { color: colores.textoTenue, fontSize: 13, marginTop: -6, marginBottom: 12 },
-  vacio: { color: colores.textoTenue, marginBottom: 12 },
+  seccion: { color: colores.texto, fontSize: 20, fontWeight: 'bold', marginBottom: 8 },
+  separada: { marginTop: 32 },
+  pista: { color: colores.textoTenue, fontSize: 14, marginBottom: 12, lineHeight: 20 },
   filaSueldo: { flexDirection: 'row', gap: 10, marginBottom: 28 },
-  inputSueldo: { flex: 1, backgroundColor: colores.superficie, color: colores.texto, borderRadius: 14, padding: 14, fontSize: 16, borderWidth: 1, borderColor: colores.borde },
+  inputSueldo: {
+    flex: 1,
+    backgroundColor: colores.superficie,
+    color: colores.texto,
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 18,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
   botonSueldo: { backgroundColor: colores.primario, borderRadius: 14, paddingHorizontal: 20, justifyContent: 'center' },
   textoBotonSueldo: { color: colores.sobrePrimario, fontWeight: 'bold', fontSize: 16 },
-  tarjeta: { flexDirection: 'row', alignItems: 'center', backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colores.borde },
+  tarjeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
   iconoMedio: { width: 40, height: 40, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
-  info: { flex: 1, marginLeft: 12 },
+  info: { flex: 1, marginLeft: 12, marginRight: 8 },
   nombre: { color: colores.texto, fontSize: 16, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
-  botonAgregar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, borderWidth: 1, borderStyle: 'dashed', borderColor: colores.primario, borderRadius: 16, padding: 16, marginTop: 4 },
+  botonAgregar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colores.primario,
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 4,
+  },
   textoAgregar: { color: colores.primario, fontWeight: '600', fontSize: 16 },
+  tono: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: colores.borde,
+  },
+  tonoActivo: { borderColor: colores.primario, backgroundColor: colores.superficieAlta },
+  tonoEmoji: { fontSize: 28 },
+  datosHoy: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, gap: 8, borderWidth: 1, borderColor: colores.borde },
+  detalleGrande: { color: colores.textoChip, fontSize: 15 },
+  fuente: { color: colores.textoTenue, fontSize: 12, marginTop: 4 },
   botonSalir: { marginTop: 40, alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colores.peligro },
   textoSalir: { color: colores.peligro, fontWeight: 'bold', fontSize: 16 },
 });

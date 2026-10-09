@@ -49,10 +49,11 @@ export default function Cargar() {
 
     setGuardando(true);
     try {
-      await datos.crearGasto({ ...preparado.fila, texto_original: texto });
+      const resultado = await datos.crearGasto({ ...preparado.fila, texto_original: texto });
       setValores(null);
       setTexto('');
-      aviso('Listo, anotado 👌');
+      if (resultado === 'pendiente') aviso('Anotado en el celular. Se sube solo cuando haya internet 📶', 'info');
+      else aviso('Listo, anotado 👌');
     } catch (e) {
       aviso(`No se pudo guardar: ${(e as Error).message}`, 'error');
     }
@@ -74,7 +75,7 @@ export default function Cargar() {
           onSubmitEditing={() => interpretar()}
         />
       </View>
-      <Boton titulo="Interpretar" onPress={() => interpretar()} estilo={{ marginTop: 12 }} />
+      <Boton titulo="Siguiente" onPress={() => interpretar()} estilo={{ marginTop: 12 }} />
 
       {!valores && (
         <View style={{ marginTop: 24 }}>
@@ -101,7 +102,7 @@ export default function Cargar() {
           <Tarjeta estilo={{ marginTop: 20 }}>
             <View style={styles.encabezadoResultado}>
               <Ionicons name="sparkles" size={16} color={colores.primario} />
-              <Text style={styles.tituloResultado}>Esto entendí. Revisalo y guardá.</Text>
+              <Text style={styles.tituloResultado}>Esto entendí. Revisalo y tocá Guardar.</Text>
             </View>
             <FormularioGasto
               valores={valores}

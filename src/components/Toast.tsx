@@ -40,7 +40,7 @@ export function ProveedorAvisos({ children }: { children: ReactNode }) {
     if (tipo === 'info') Haptics.selectionAsync();
     else Haptics.notificationAsync(tipo === 'error' ? Haptics.NotificationFeedbackType.Error : Haptics.NotificationFeedbackType.Success);
     setAviso({ id: Date.now(), texto, tipo });
-    temporizador.current = setTimeout(() => setAviso(null), 2600);
+    temporizador.current = setTimeout(() => setAviso(null), 3800);
   }, []);
 
   return (

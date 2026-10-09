@@ -8,21 +8,26 @@ import { useAviso } from '../components/Toast';
 import { Encabezado, Texto as Text } from '../components/ui';
 import { colores, colorSegunPorcentaje, radios } from '../constants/tema';
 import { useDatos } from '../lib/contextoDatos';
-import { formatearMonto, proyectarCuotas, type MesProyectado } from '../lib/finanzas';
+import type { GastoConMedio } from '../lib/datos';
+import { deudaPendiente, diaDeLibertad, formatearMes, formatearMonto, proyectarCuotas, totalEnPesos, type MesProyectado } from '../lib/finanzas';
+import { useIndicadores } from '../lib/indicadores';
 
 export default function Cuotas() {
   const datos = useDatos();
   const aviso = useAviso();
+  const { dolarTarjeta, inflacionMensual } = useIndicadores();
   const [meses, setMeses] = useState<MesProyectado[]>([]);
+  const [gastos, setGastos] = useState<GastoConMedio[]>([]);
   const [sueldo, setSueldo] = useState<number | null>(null);
   const [seleccionado, setSeleccionado] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
       Promise.all([datos.perfil(), datos.gastos()])
-        .then(([perfil, gastos]) => {
+        .then(([perfil, lista]) => {
           setSueldo(perfil.sueldo);
-          setMeses(proyectarCuotas(gastos, new Date()));
+          setGastos(lista);
+          setMeses(proyectarCuotas(lista, new Date()));
         })
         .catch((e) => aviso(e.message, 'error'));
     }, [datos, aviso])
@@ -30,21 +35,30 @@ export default function Cuotas() {
 
   if (meses.length === 0) return <View style={styles.container} />;
 
+  const hoy = new Date();
   const mesActual = meses[0];
   const mesElegido = meses[seleccionado];
-  const porcentaje = sueldo ? (mesActual.ars / sueldo) * 100 : null;
+  const totalMes = (mes: MesProyectado) => totalEnPesos(mes, dolarTarjeta);
+  const porcentaje = sueldo ? (totalMes(mesActual) / sueldo) * 100 : null;
   const colorEstado = colorSegunPorcentaje(porcentaje);
-  const maximo = Math.max(...meses.map((m) => m.ars), 1);
-  const totalSeisMeses = meses.reduce((suma, m) => suma + m.ars, 0);
+  const maximo = Math.max(...meses.map(totalMes), 1);
+  const totalSeisMeses = meses.reduce((suma, m) => suma + totalMes(m), 0);
+  const deuda = deudaPendiente(gastos, hoy, inflacionMensual, dolarTarjeta);
+  const libertad = diaDeLibertad(gastos, hoy);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido}>
-      <Encabezado titulo="Cuotas" subtitulo="Lo que ya tenés comprometido" />
+      <Encabezado titulo="Cuotas" subtitulo="Lo que ya tenés que pagar, mes por mes" />
 
       <View style={styles.resumen}>
-        <Text style={styles.etiqueta}>Comprometido este mes</Text>
+        <Text style={styles.etiqueta}>Este mes tenés que pagar</Text>
         <Text style={styles.montoGrande}>{formatearMonto(Math.round(mesActual.ars))}</Text>
-        {mesActual.usd > 0 && <Text style={styles.dolares}>+ {formatearMonto(mesActual.usd, 'USD')}</Text>}
+        {mesActual.usd > 0 && (
+          <Text style={styles.dolares}>
+            y {formatearMonto(mesActual.usd, 'USD')}
+            {dolarTarjeta ? ` (unos ${formatearMonto(Math.round(mesActual.usd * dolarTarjeta))} al dólar tarjeta)` : ''}
+          </Text>
+        )}
 
         {porcentaje !== null ? (
           <>
@@ -52,7 +66,7 @@ export default function Cuotas() {
               <View style={[styles.barraRelleno, { width: `${Math.min(porcentaje, 100)}%`, backgroundColor: colorEstado }]} />
             </View>
             <Text style={[styles.porcentaje, { color: colorEstado }]}>
-              {porcentaje.toFixed(0)}% de tu sueldo · te quedan {formatearMonto(Math.round(Math.max(sueldo! - mesActual.ars, 0)))}
+              Es el {porcentaje.toFixed(0)}% de tu sueldo · te quedan {formatearMonto(Math.round(Math.max(sueldo! - totalMes(mesActual), 0)))}
             </Text>
           </>
         ) : (
@@ -76,16 +90,40 @@ export default function Cuotas() {
               }}
             >
               <Text style={[styles.valorBarra, i === seleccionado && { color: colores.primario }]} numberOfLines={1}>
-                {abreviar(mes.ars)}
+                {abreviar(totalMes(mes))}
               </Text>
               <View style={styles.zonaBarra}>
-                <Barra proporcion={mes.ars / maximo} activa={i === seleccionado} indice={i} />
+                <Barra proporcion={totalMes(mes) / maximo} activa={i === seleccionado} indice={i} />
               </View>
               <Text style={[styles.mes, i === seleccionado && styles.mesSeleccionado]}>{mes.etiqueta}</Text>
             </Pressable>
           ))}
         </View>
       </View>
+
+      <Text style={styles.ayuda}>Tocá un mes para ver qué cuotas se pagan.</Text>
+
+      {deuda.total > 0 && (
+        <View style={styles.deuda}>
+          <Text style={styles.etiqueta}>En total te queda por pagar</Text>
+          <Text style={styles.montoMediano}>{formatearMonto(Math.round(deuda.total))}</Text>
+          <View style={styles.deudaFila}>
+            <Ionicons name="trending-down-outline" size={18} color={colores.primario} style={{ marginTop: 2 }} />
+            <Text style={styles.deudaTexto}>
+              Con la inflación, la plata pierde valor cada mes. Por eso esas cuotas, en plata de hoy, son unos{' '}
+              <Text style={styles.deudaDestacado}>{formatearMonto(Math.round(deuda.valorHoy))}</Text>.
+            </Text>
+          </View>
+          {libertad && (
+            <View style={styles.deudaFila}>
+              <Ionicons name="flag-outline" size={18} color={colores.primario} style={{ marginTop: 2 }} />
+              <Text style={styles.deudaTexto}>
+                Terminás de pagar todo en <Text style={styles.deudaDestacado}>{formatearMes(libertad, hoy)}</Text>. ¡Tu día de libertad! 🏁
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <Text style={styles.seccion}>
         {mesElegido.etiqueta}: {formatearMonto(Math.round(mesElegido.ars))}
@@ -150,6 +188,12 @@ const styles = StyleSheet.create({
   encabezadoGrafico: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   totalSeis: { color: colores.textoSecundario, fontSize: 14, fontWeight: '600' },
   seccion: { color: colores.texto, fontSize: 18, fontWeight: 'bold', marginTop: 28, marginBottom: 12 },
+  ayuda: { color: colores.textoTenue, fontSize: 13, marginTop: 8 },
+  deuda: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 18, marginTop: 20, gap: 10, borderWidth: 1, borderColor: colores.borde },
+  montoMediano: { color: colores.texto, fontSize: 28, fontWeight: '800', letterSpacing: -0.8, marginTop: -6 },
+  deudaFila: { flexDirection: 'row', gap: 10 },
+  deudaTexto: { color: colores.textoChip, fontSize: 15, lineHeight: 22, flex: 1 },
+  deudaDestacado: { color: colores.texto, fontWeight: '700' },
   tarjetaGrafico: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, borderWidth: 1, borderColor: colores.borde },
   grafico: { flexDirection: 'row', gap: 10, height: 180 },
   columna: { flex: 1, alignItems: 'center' },

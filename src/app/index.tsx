@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
@@ -9,11 +9,25 @@ import { useAviso } from '../components/Toast';
 import { Boton, confirmar, Encabezado, Texto as Text } from '../components/ui';
 import { estiloCategoria } from '../constants/categorias';
 import { colores, colorSegunPorcentaje, degradados, radios, tipografia } from '../constants/tema';
+import { consejos, emojiDe, TONOS } from '../lib/asistente';
+import { programarAvisosCierre } from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
 import type { GastoConMedio, Perfil } from '../lib/datos';
-import { formatearFecha, formatearMonto, proyectarCuotas, type MesProyectado } from '../lib/finanzas';
+import {
+  diaDeLibertad,
+  formatearDia,
+  formatearFecha,
+  formatearMes,
+  formatearMonto,
+  MESES,
+  proyectarCuotas,
+  tarjetasParaHoy,
+  totalEnPesos,
+  type MesProyectado,
+} from '../lib/finanzas';
 import { montoATexto } from '../lib/formato';
 import { fechaDesdeTexto, prepararGasto, type ValoresGasto } from '../lib/gastos';
+import { useIndicadores } from '../lib/indicadores';
 import type { Categoria, MedioPago } from '../lib/tipos';
 
 type Edicion = { gasto: GastoConMedio; valores: ValoresGasto };
@@ -22,16 +36,17 @@ type TotalCategoria = { categoria: string; total: number };
 
 const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
 const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
 export default function Inicio() {
   const datos = useDatos();
   const aviso = useAviso();
-  const [perfil, setPerfil] = useState<Perfil>({ nombre: null, sueldo: null });
+  const { dolarTarjeta } = useIndicadores();
+  const [perfil, setPerfil] = useState<Perfil>({ nombre: null, sueldo: null, tono: 'directo' });
   const [gastos, setGastos] = useState<GastoConMedio[]>([]);
   const [meses, setMeses] = useState<MesProyectado[]>([]);
   const [medios, setMedios] = useState<MedioPago[]>([]);
   const [cargando, setCargando] = useState(false);
+  const [cargado, setCargado] = useState(false);
   const [edicion, setEdicion] = useState<Edicion | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -44,8 +59,10 @@ export default function Inicio() {
       setGastos(todos);
       setMeses(proyectarCuotas(todos, new Date(), 2));
       setMedios(listaMedios);
+      setCargado(true);
+      if (!datos.esDemo) programarAvisosCierre(listaMedios).catch(() => {});
     } catch (e) {
-      aviso(`No se pudieron cargar tus datos: ${(e as Error).message}`, 'error');
+      aviso(`No se pudieron cargar tus datos. ${(e as Error).message}`, 'error');
     }
     setCargando(false);
   }, [datos, aviso]);
@@ -83,7 +100,7 @@ export default function Inicio() {
       aviso('Cambios guardados ✓');
       cargar();
     } catch (e) {
-      setMensaje(`Error: ${(e as Error).message}`);
+      setMensaje((e as Error).message);
     }
     setGuardando(false);
   }
@@ -91,51 +108,89 @@ export default function Inicio() {
   function confirmarBorrado() {
     if (!edicion) return;
     const { gasto } = edicion;
-    confirmar('Eliminar gasto', `¿Eliminar "${gasto.descripcion}"? También se quitan sus cuotas de la proyección.`, 'Eliminar', async () => {
+    confirmar('Borrar gasto', `¿Borrar "${gasto.descripcion}"? También se borran sus cuotas.`, 'Borrar', async () => {
       try {
         await datos.borrarGasto(gasto.id);
         setEdicion(null);
-        aviso('Gasto eliminado');
+        aviso('Gasto borrado');
         cargar();
       } catch (e) {
-        setMensaje(`Error: ${(e as Error).message}`);
+        setMensaje((e as Error).message);
       }
     });
   }
 
-  const { nombre, sueldo } = perfil;
+  const hoy = new Date();
+  const { nombre, sueldo, tono } = perfil;
   const primerNombre = nombre ? nombre.split(' ')[0] : null;
-  const comprometido = meses[0]?.ars ?? 0;
-  const proximoMes = meses[1]?.ars ?? 0;
-  const porcentaje = sueldo ? (comprometido / sueldo) * 100 : null;
+  const esteMes = meses[0] ?? { ars: 0, usd: 0 };
+  const totalEsteMes = totalEnPesos(esteMes, dolarTarjeta);
+  const proximoMes = meses[1] ? totalEnPesos(meses[1], dolarTarjeta) : 0;
+  const porcentaje = sueldo ? (totalEsteMes / sueldo) * 100 : null;
   const colorEstado = colorSegunPorcentaje(porcentaje);
-  const categorias = totalesPorCategoria(gastos);
+  const categorias = totalesPorCategoria(gastos, hoy);
   const maximoCategoria = categorias[0]?.total ?? 1;
-  const mesActual = MESES[new Date().getMonth()];
+  const mejorTarjeta = tarjetasParaHoy(medios, hoy)[0] ?? null;
+  const libertad = diaDeLibertad(gastos, hoy);
+  const tips = cargado ? consejos({ tono, hoy, porcentaje, medios, gastos }) : [];
+  const pasos = [
+    { hecho: sueldo !== null, texto: 'Contame cuánto cobrás por mes', destino: '/ajustes' as Href },
+    { hecho: medios.length > 0, texto: 'Agregá tu tarjeta o billetera', destino: '/ajustes' as Href },
+    { hecho: gastos.length > 0, texto: 'Anotá tu primer gasto', destino: '/cargar' as Href },
+  ];
+  const faltanPasos = cargado && pasos.some((p) => !p.hecho);
 
   return (
     <View style={styles.container}>
       <SectionList
         contentContainerStyle={styles.contenido}
-        sections={agruparPorDia(gastos.slice(0, 30))}
+        sections={agruparPorDia(gastos.slice(0, 30), hoy)}
         keyExtractor={(gasto) => gasto.id}
         stickySectionHeadersEnabled={false}
         refreshControl={<RefreshControl refreshing={cargando} onRefresh={cargar} tintColor={colores.primario} />}
         ListHeaderComponent={
           <View>
-            <Encabezado titulo={`Hola${primerNombre ? `, ${primerNombre}` : ''} 👋`} subtitulo="Así vienen tus finanzas este mes" />
+            <Encabezado titulo={`Hola${primerNombre ? `, ${primerNombre}` : ''} 👋`} subtitulo="Así venís este mes" />
 
             {datos.esDemo && (
               <View style={styles.demo}>
                 <Ionicons name="sparkles" size={16} color={colores.advertencia} />
-                <Text style={styles.demoTexto}>Estás en el modo demo: los datos son de ejemplo y no se guardan.</Text>
+                <Text style={styles.demoTexto}>Estás probando la app con datos de ejemplo. Nada de lo que hagas se guarda.</Text>
+              </View>
+            )}
+
+            {faltanPasos && (
+              <View style={styles.pasos}>
+                <Text style={styles.pasosTitulo}>Primeros pasos</Text>
+                {pasos.map((paso) => (
+                  <Pressable
+                    key={paso.texto}
+                    style={({ pressed }) => [styles.paso, pressed && { opacity: 0.7 }]}
+                    onPress={() => !paso.hecho && router.push(paso.destino)}
+                    disabled={paso.hecho}
+                  >
+                    <Ionicons
+                      name={paso.hecho ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={24}
+                      color={paso.hecho ? colores.primario : colores.textoTenue}
+                    />
+                    <Text style={[styles.pasoTexto, paso.hecho && styles.pasoHecho]}>{paso.texto}</Text>
+                    {!paso.hecho && <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />}
+                  </Pressable>
+                ))}
               </View>
             )}
 
             <Animated.View entering={FadeInDown.springify()}>
               <LinearGradient colors={degradados.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
-                <Text style={styles.heroEtiqueta}>Comprometido en {mesActual}</Text>
-                <Text style={styles.heroMonto}>{formatearMonto(Math.round(comprometido))}</Text>
+                <Text style={styles.heroEtiqueta}>Este mes tenés que pagar</Text>
+                <Text style={styles.heroMonto}>{formatearMonto(Math.round(esteMes.ars))}</Text>
+                {esteMes.usd > 0 && (
+                  <Text style={styles.heroDolares}>
+                    y {formatearMonto(esteMes.usd, 'USD')}
+                    {dolarTarjeta ? ` (unos ${formatearMonto(Math.round(esteMes.usd * dolarTarjeta))})` : ''}
+                  </Text>
+                )}
 
                 {porcentaje !== null ? (
                   <>
@@ -143,8 +198,8 @@ export default function Inicio() {
                       <View style={[styles.barraRelleno, { width: `${Math.min(porcentaje, 100)}%`, backgroundColor: colorEstado }]} />
                     </View>
                     <View style={styles.heroFila}>
-                      <Text style={styles.heroDato}>{porcentaje.toFixed(0)}% de tu sueldo</Text>
-                      <Text style={styles.heroDato}>Te quedan {formatearMonto(Math.round(Math.max(sueldo! - comprometido, 0)))}</Text>
+                      <Text style={styles.heroDato}>Es el {porcentaje.toFixed(0)}% de tu sueldo</Text>
+                      <Text style={styles.heroDato}>Te quedan {formatearMonto(Math.round(Math.max(sueldo! - totalEsteMes, 0)))}</Text>
                     </View>
                   </>
                 ) : (
@@ -155,16 +210,68 @@ export default function Inicio() {
                   <View style={styles.heroProximo}>
                     <Ionicons name="calendar-outline" size={16} color="#a7f3d0" />
                     <Text style={styles.heroProximoTexto}>
-                      En {MESES[(new Date().getMonth() + 1) % 12]} ya tenés {formatearMonto(Math.round(proximoMes))} comprometidos
+                      En {MESES[(hoy.getMonth() + 1) % 12]} ya tenés {formatearMonto(Math.round(proximoMes))} para pagar
                     </Text>
                   </View>
                 )}
               </LinearGradient>
             </Animated.View>
 
+            {tips.length > 0 && (
+              <Animated.View entering={FadeInDown.delay(80).springify()} style={styles.asistente}>
+                <View style={styles.asistenteEncabezado}>
+                  <Text style={styles.asistenteEmoji}>{emojiDe(tono)}</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.asistenteTitulo}>Tu asistente</Text>
+                    <Text style={styles.asistenteTono}>{TONOS.find((t) => t.valor === tono)?.nombre}</Text>
+                  </View>
+                </View>
+                {tips.map((tip) => (
+                  <View key={tip.texto} style={styles.tip}>
+                    <Ionicons name={tip.icono} size={18} color={colores.primario} style={{ marginTop: 2 }} />
+                    <Text style={styles.tipTexto}>{tip.texto}</Text>
+                  </View>
+                ))}
+              </Animated.View>
+            )}
+
+            {(mejorTarjeta || libertad) && (
+              <Animated.View entering={FadeInDown.delay(140).springify()} style={styles.utiles}>
+                {mejorTarjeta && (
+                  <Pressable style={({ pressed }) => [styles.util, pressed && { opacity: 0.7 }]} onPress={() => router.push('/comprar')}>
+                    <View style={styles.utilIcono}>
+                      <Ionicons name="card" size={20} color={colores.primario} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.utilEtiqueta}>Si comprás algo hoy, usá la</Text>
+                      <Text style={styles.utilValor}>{mejorTarjeta.medio.nombre}</Text>
+                      <Text style={styles.utilDetalle}>
+                        La pagás el {formatearDia(mejorTarjeta.fechaPago)} (dentro de {mejorTarjeta.dias} días)
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />
+                  </Pressable>
+                )}
+                {mejorTarjeta && libertad && <View style={styles.separador} />}
+                {libertad && (
+                  <Pressable style={({ pressed }) => [styles.util, pressed && { opacity: 0.7 }]} onPress={() => router.push('/cuotas')}>
+                    <View style={styles.utilIcono}>
+                      <Ionicons name="flag" size={20} color={colores.primario} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.utilEtiqueta}>Terminás de pagar tus cuotas en</Text>
+                      <Text style={styles.utilValor}>{capitalizar(formatearMes(libertad, hoy))}</Text>
+                      <Text style={styles.utilDetalle}>Tu día de libertad 🏁</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />
+                  </Pressable>
+                )}
+              </Animated.View>
+            )}
+
             {categorias.length > 0 && (
-              <Animated.View entering={FadeInDown.delay(100).springify()}>
-                <Text style={[tipografia.seccion, styles.seccion]}>En qué gastaste en {mesActual}</Text>
+              <Animated.View entering={FadeInDown.delay(200).springify()}>
+                <Text style={[tipografia.seccion, styles.seccion]}>En qué gastaste en {MESES[hoy.getMonth()]}</Text>
                 <View style={styles.tarjetaCategorias}>
                   {categorias.slice(0, 5).map(({ categoria, total }) => {
                     const { icono, color } = estiloCategoria(categoria);
@@ -190,6 +297,7 @@ export default function Inicio() {
             )}
 
             <Text style={[tipografia.seccion, styles.seccion]}>Últimos gastos</Text>
+            {gastos.length > 0 && <Text style={styles.pista}>Tocá un gasto para cambiarlo o borrarlo.</Text>}
           </View>
         }
         renderSectionHeader={({ section }) => (
@@ -199,10 +307,10 @@ export default function Inicio() {
           </View>
         )}
         ListEmptyComponent={
-          !cargando ? (
+          cargado ? (
             <View style={styles.vacio}>
               <Ionicons name="receipt-outline" size={36} color={colores.textoTenue} />
-              <Text style={styles.vacioTexto}>Todavía no cargaste gastos.{'\n'}Tocá el botón + para anotar el primero.</Text>
+              <Text style={styles.vacioTexto}>Todavía no anotaste gastos.{'\n'}Tocá el botón verde + para anotar el primero.</Text>
             </View>
           ) : null
         }
@@ -220,6 +328,7 @@ export default function Inicio() {
                     {gasto.tarjetas?.nombre ?? 'Efectivo'}
                     {gasto.cantidad_cuotas > 1 ? ` · ${gasto.cantidad_cuotas} cuotas` : ''}
                   </Text>
+                  {gasto.pendiente && <Text style={styles.pendiente}>⏳ Se sube cuando haya internet</Text>}
                 </View>
                 <Text style={styles.monto}>{formatearMonto(Number(gasto.monto_total), gasto.moneda)}</Text>
               </Pressable>
@@ -230,7 +339,7 @@ export default function Inicio() {
 
       <Modal visible={edicion !== null} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setEdicion(null)}>
         <ScrollView style={styles.container} contentContainerStyle={styles.contenidoModal} keyboardShouldPersistTaps="handled">
-          <Text style={tipografia.titulo}>Editar gasto</Text>
+          <Text style={tipografia.titulo}>Cambiar gasto</Text>
           {edicion && (
             <FormularioGasto
               valores={edicion.valores}
@@ -244,16 +353,20 @@ export default function Inicio() {
             />
           )}
           {mensaje && <Text style={styles.mensaje}>{mensaje}</Text>}
-          <Boton titulo="Eliminar gasto" variante="peligro" onPress={confirmarBorrado} estilo={{ marginTop: 28 }} />
+          <Boton titulo="Borrar este gasto" variante="peligro" onPress={confirmarBorrado} estilo={{ marginTop: 28 }} />
         </ScrollView>
       </Modal>
     </View>
   );
 }
 
+function capitalizar(texto: string) {
+  return texto[0].toUpperCase() + texto.slice(1);
+}
+
 // Total en pesos de las compras de este mes, por categoría, de mayor a menor
-function totalesPorCategoria(gastos: GastoConMedio[]): TotalCategoria[] {
-  const prefijoMes = formatearFecha(new Date()).slice(0, 7);
+function totalesPorCategoria(gastos: GastoConMedio[], hoy: Date): TotalCategoria[] {
+  const prefijoMes = formatearFecha(hoy).slice(0, 7);
   const totales = new Map<string, number>();
   for (const g of gastos) {
     if (g.moneda !== 'ARS' || !g.fecha_compra.startsWith(prefijoMes)) continue;
@@ -264,15 +377,15 @@ function totalesPorCategoria(gastos: GastoConMedio[]): TotalCategoria[] {
 }
 
 // Agrupa los gastos (ya ordenados del más nuevo al más viejo) por día
-function agruparPorDia(gastos: GastoConMedio[]): SeccionDia[] {
-  const hoy = formatearFecha(new Date());
-  const ayerFecha = new Date();
+function agruparPorDia(gastos: GastoConMedio[], hoy: Date): SeccionDia[] {
+  const textoHoy = formatearFecha(hoy);
+  const ayerFecha = new Date(hoy);
   ayerFecha.setDate(ayerFecha.getDate() - 1);
   const ayer = formatearFecha(ayerFecha);
 
   const secciones: SeccionDia[] = [];
   for (const gasto of gastos) {
-    const titulo = gasto.fecha_compra === hoy ? 'Hoy' : gasto.fecha_compra === ayer ? 'Ayer' : tituloDia(gasto.fecha_compra);
+    const titulo = gasto.fecha_compra === textoHoy ? 'Hoy' : gasto.fecha_compra === ayer ? 'Ayer' : tituloDia(gasto.fecha_compra);
     const monto = gasto.moneda === 'ARS' ? Number(gasto.monto_total) : 0;
     const ultima = secciones[secciones.length - 1];
     if (ultima && ultima.titulo === titulo) {
@@ -307,15 +420,29 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 14,
   },
-  demoTexto: { color: '#fde68a', fontSize: 13, flex: 1 },
+  demoTexto: { color: '#fde68a', fontSize: 14, flex: 1 },
+  pasos: {
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    borderWidth: 1,
+    borderColor: colores.primario,
+    padding: 16,
+    marginBottom: 14,
+    gap: 4,
+  },
+  pasosTitulo: { color: colores.texto, fontSize: 17, fontWeight: '700', marginBottom: 6 },
+  paso: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  pasoTexto: { color: colores.texto, fontSize: 16, flex: 1 },
+  pasoHecho: { color: colores.textoTenue, textDecorationLine: 'line-through' },
   hero: { borderRadius: radios.enorme, padding: 22, overflow: 'hidden' },
-  heroEtiqueta: { color: '#a7f3d0', fontSize: 14, fontWeight: '600' },
-  heroMonto: { color: colores.texto, fontSize: 38, fontWeight: '800', marginTop: 6, letterSpacing: -1.5 },
-  barraFondo: { height: 8, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 4, marginTop: 18, overflow: 'hidden' },
-  barraRelleno: { height: '100%', borderRadius: 4 },
-  heroFila: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  heroDato: { color: '#d1fae5', fontSize: 13, fontWeight: '600' },
-  heroPista: { color: '#a7f3d0', fontSize: 14, marginTop: 10 },
+  heroEtiqueta: { color: '#a7f3d0', fontSize: 15, fontWeight: '600' },
+  heroMonto: { color: colores.texto, fontSize: 40, fontWeight: '800', marginTop: 6, letterSpacing: -1.5 },
+  heroDolares: { color: '#d1fae5', fontSize: 15, marginTop: 2 },
+  barraFondo: { height: 10, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 5, marginTop: 18, overflow: 'hidden' },
+  barraRelleno: { height: '100%', borderRadius: 5 },
+  heroFila: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 10, flexWrap: 'wrap' },
+  heroDato: { color: '#d1fae5', fontSize: 14, fontWeight: '600' },
+  heroPista: { color: '#a7f3d0', fontSize: 15, marginTop: 10 },
   heroProximo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -325,8 +452,39 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(167, 243, 208, 0.2)',
   },
-  heroProximoTexto: { color: '#d1fae5', fontSize: 13, flex: 1 },
+  heroProximoTexto: { color: '#d1fae5', fontSize: 14, flex: 1 },
+  asistente: {
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    padding: 16,
+    marginTop: 14,
+    gap: 12,
+  },
+  asistenteEncabezado: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  asistenteEmoji: { fontSize: 30 },
+  asistenteTitulo: { color: colores.texto, fontSize: 17, fontWeight: '700' },
+  asistenteTono: { color: colores.textoTenue, fontSize: 13 },
+  tip: { flexDirection: 'row', gap: 10 },
+  tipTexto: { color: colores.textoChip, fontSize: 15, lineHeight: 22, flex: 1 },
+  utiles: {
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    marginTop: 14,
+  },
+  util: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
+  utilIcono: { width: 40, height: 40, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  utilEtiqueta: { color: colores.textoSecundario, fontSize: 13 },
+  utilValor: { color: colores.texto, fontSize: 17, fontWeight: '700', marginTop: 1 },
+  utilDetalle: { color: colores.primario, fontSize: 13, marginTop: 2 },
+  separador: { height: StyleSheet.hairlineWidth, backgroundColor: colores.borde },
   seccion: { marginTop: 28, marginBottom: 12 },
+  pista: { color: colores.textoTenue, fontSize: 13, marginTop: -6 },
   tarjetaCategorias: {
     backgroundColor: colores.superficie,
     borderRadius: radios.grande,
@@ -338,15 +496,15 @@ const styles = StyleSheet.create({
   filaCategoria: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconoChico: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   filaCategoriaTexto: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
-  nombreCategoria: { color: colores.texto, fontSize: 14, fontWeight: '600' },
-  montoCategoria: { color: colores.textoSecundario, fontSize: 14 },
+  nombreCategoria: { color: colores.texto, fontSize: 15, fontWeight: '600' },
+  montoCategoria: { color: colores.textoSecundario, fontSize: 15 },
   barraCategoriaFondo: { height: 6, backgroundColor: colores.fondo, borderRadius: 3, overflow: 'hidden' },
   barraCategoria: { height: '100%', borderRadius: 3 },
   dia: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 },
   diaTitulo: { color: colores.textoSecundario, fontSize: 14, fontWeight: '600' },
   diaTotal: { color: colores.textoTenue, fontSize: 14 },
   vacio: { alignItems: 'center', gap: 10, paddingVertical: 28 },
-  vacioTexto: { color: colores.textoTenue, fontSize: 15, textAlign: 'center' },
+  vacioTexto: { color: colores.textoTenue, fontSize: 15, textAlign: 'center', lineHeight: 22 },
   item: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -361,6 +519,7 @@ const styles = StyleSheet.create({
   info: { flex: 1, marginLeft: 12, marginRight: 8 },
   descripcion: { color: colores.texto, fontSize: 16, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
+  pendiente: { color: colores.advertencia, fontSize: 12, marginTop: 2 },
   monto: { color: colores.texto, fontSize: 16, fontWeight: '700' },
   mensaje: { color: colores.error, textAlign: 'center', marginTop: 14, fontSize: 15 },
 });

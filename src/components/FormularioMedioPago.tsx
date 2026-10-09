@@ -60,15 +60,15 @@ export default function FormularioMedioPago({ medio, onGuardado, onCancelar }: P
 
   return (
     <View style={styles.caja}>
-      {editando && <Text style={styles.titulo}>Editar {medio.nombre}</Text>}
+      {editando && <Text style={styles.titulo}>Cambiar {medio.nombre}</Text>}
 
-      <Etiqueta>Tipo</Etiqueta>
+      <Etiqueta>¿Qué es?</Etiqueta>
       <View style={styles.chips}>
-        <Chip etiqueta="Débito" activo={tipo === 'debito'} onPress={() => setTipo('debito')} />
-        <Chip etiqueta="Crédito" activo={tipo === 'credito'} onPress={() => setTipo('credito')} />
+        <Chip etiqueta="Tarjeta de crédito" activo={tipo === 'credito'} onPress={() => setTipo('credito')} />
+        <Chip etiqueta="Débito o billetera" activo={tipo === 'debito'} onPress={() => setTipo('debito')} />
       </View>
 
-      <Campo etiqueta="Nombre" placeholder='Ej: "Mercado Pago"' value={nombre} onChangeText={setNombre} />
+      <Campo etiqueta="¿Cómo la llamás?" placeholder='Ej: "Visa del Galicia"' value={nombre} onChangeText={setNombre} />
       <Campo etiqueta="Banco o billetera (opcional)" placeholder="Ej: Mercado Pago, Galicia" value={banco} onChangeText={setBanco} />
 
       <Etiqueta>Red (opcional)</Etiqueta>
@@ -100,6 +100,9 @@ export default function FormularioMedioPago({ medio, onGuardado, onCancelar }: P
               maxLength={2}
             />
           </View>
+          <Text style={styles.nota}>
+            📄 Los dos días figuran en el resumen de la tarjeta: “cierre” es el último día que entra en ese resumen y “vencimiento”, el día que hay que pagarlo.
+          </Text>
           {editando && (
             <Text style={styles.nota}>
               Si cambiás el cierre, se aplica a los gastos que cargues desde ahora. Los anteriores quedan como estaban.

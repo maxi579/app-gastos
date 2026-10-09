@@ -22,7 +22,8 @@ export function formatearFecha(fecha: Date): string {
 
 export function formatearMonto(valor: number, moneda: 'ARS' | 'USD' = 'ARS'): string {
   const simbolo = moneda === 'USD' ? 'US$' : '$';
-  return `${simbolo} ${valor.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+  // Espacio que no se corta: el signo nunca queda separado del número al cambiar de línea
+  return `${simbolo}\u00A0${valor.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
 }
 
 const NOMBRES_MES = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -113,4 +114,103 @@ export function inflacionDeEquilibrio(contado: number, montoTotal: number, cuota
     else alto = medio;
   }
   return alto;
+}
+// ---------- Fechas de pago y tarjetas ----------
+
+export const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+// Date → 'marzo 2027' (o 'marzo' si es este año)
+export function formatearMes(fecha: Date, hoy = new Date()) {
+  const mes = MESES[fecha.getMonth()];
+  return fecha.getFullYear() === hoy.getFullYear() ? mes : `${mes} ${fecha.getFullYear()}`;
+}
+
+// Date → '2 de diciembre'
+export function formatearDia(fecha: Date) {
+  return `${fecha.getDate()} de ${MESES[fecha.getMonth()]}`;
+}
+
+// Días entre dos fechas, sin importar la hora
+export function diasEntre(desde: Date, hasta: Date) {
+  const a = Date.UTC(desde.getFullYear(), desde.getMonth(), desde.getDate());
+  const b = Date.UTC(hasta.getFullYear(), hasta.getMonth(), hasta.getDate());
+  return Math.round((b - a) / 86_400_000);
+}
+
+// El día del mes, pero sin pasarse del último día (el 31 en febrero es el 28 o 29)
+function diaDelMes(anio: number, mes: number, dia: number) {
+  return new Date(anio, mes, Math.min(dia, new Date(anio, mes + 1, 0).getDate()));
+}
+
+function esCreditoCompleto(medio: MedioPago | null): medio is MedioPago & { dia_cierre: number; dia_vencimiento: number } {
+  return medio?.tipo === 'credito' && !!medio.dia_cierre && !!medio.dia_vencimiento;
+}
+
+// Día en que se paga (la primera cuota de) una compra. Con débito o efectivo se paga en el momento.
+export function fechaDePago(fechaCompra: Date, medio: MedioPago | null): Date {
+  if (!esCreditoCompleto(medio)) return fechaCompra;
+  const [anio, mes] = calcularPrimerMesCuota(fechaCompra, medio).split('-').map(Number);
+  return diaDelMes(anio, mes - 1, medio.dia_vencimiento);
+}
+
+export type OpcionTarjeta = { medio: MedioPago; fechaPago: Date; dias: number };
+
+// Tarjetas de crédito ordenadas de la que más tarde se paga a la que antes se paga, para una compra de hoy
+export function tarjetasParaHoy(medios: MedioPago[], hoy = new Date()): OpcionTarjeta[] {
+  return medios
+    .filter(esCreditoCompleto)
+    .map((medio) => {
+      const fechaPago = fechaDePago(hoy, medio);
+      return { medio, fechaPago, dias: diasEntre(hoy, fechaPago) };
+    })
+    .sort((a, b) => b.dias - a.dias);
+}
+
+// Próximo día de cierre de una tarjeta, contando hoy
+export function proximoCierre(medio: MedioPago, hoy = new Date()): Date | null {
+  if (!esCreditoCompleto(medio)) return null;
+  const esteMes = diaDelMes(hoy.getFullYear(), hoy.getMonth(), medio.dia_cierre);
+  return diasEntre(hoy, esteMes) >= 0 ? esteMes : diaDelMes(hoy.getFullYear(), hoy.getMonth() + 1, medio.dia_cierre);
+}
+
+// ---------- Cuotas pendientes ----------
+
+// Primer día del mes en que se paga la última cuota de todo lo cargado, o null si no queda nada por pagar
+export function diaDeLibertad(gastos: GastoGuardado[], desde = new Date()): Date | null {
+  const inicio = desde.getFullYear() * 12 + desde.getMonth();
+  let ultimo = -1;
+  for (const gasto of gastos) {
+    if (!gasto.primer_mes_cuota) continue;
+    const fin = indiceMes(gasto.primer_mes_cuota) + gasto.cantidad_cuotas - 1;
+    if (fin >= inicio && fin > ultimo) ultimo = fin;
+  }
+  return ultimo < 0 ? null : new Date(Math.floor(ultimo / 12), ultimo % 12, 1);
+}
+
+// Todo lo que queda por pagar desde este mes, y cuánto vale eso en plata de hoy con la inflación
+export function deudaPendiente(gastos: GastoGuardado[], desde: Date, inflacionMensual: number, dolar: number | null) {
+  const inicio = desde.getFullYear() * 12 + desde.getMonth();
+  let pesos = 0;
+  let dolares = 0;
+  let valorHoy = 0;
+  for (const gasto of gastos) {
+    if (!gasto.primer_mes_cuota) continue;
+    const primerMes = indiceMes(gasto.primer_mes_cuota);
+    const cuota = Number(gasto.monto_total) / gasto.cantidad_cuotas;
+    for (let n = 0; n < gasto.cantidad_cuotas; n++) {
+      const posicion = primerMes + n - inicio;
+      if (posicion < 0) continue;
+      if (gasto.moneda === 'USD') dolares += cuota;
+      else pesos += cuota;
+      const enPesos = gasto.moneda === 'USD' ? cuota * (dolar ?? 0) : cuota;
+      valorHoy += enPesos / Math.pow(1 + inflacionMensual, posicion);
+    }
+  }
+  const total = pesos + dolares * (dolar ?? 0);
+  return { pesos, dolares, total, valorHoy };
+}
+
+// Total de un mes en pesos, pasando los dólares al dólar tarjeta si lo tenemos
+export function totalEnPesos(mes: { ars: number; usd: number }, dolar: number | null) {
+  return mes.ars + (dolar ? mes.usd * dolar : 0);
 }

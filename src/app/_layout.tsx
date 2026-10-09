@@ -86,7 +86,7 @@ export default function Layout() {
               ),
             }}
           />
-          <Tabs.Screen name="simular" options={{ title: 'Simular', tabBarIcon: icono('calculator') }} />
+          <Tabs.Screen name="comprar" options={{ title: 'Comprar', tabBarIcon: icono('bag-check') }} />
           <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: icono('settings') }} />
         </Tabs>
       </ProveedorDatos>
@@ -102,7 +102,7 @@ export default function Layout() {
 }
 
 // Ícono relleno en la pestaña activa y de contorno en las demás
-function icono(nombre: 'home' | 'calendar' | 'calculator' | 'settings') {
+function icono(nombre: 'home' | 'calendar' | 'bag-check' | 'settings') {
   function IconoPestana({ color, size, focused }: { color: ColorValue; size: number; focused: boolean }) {
     return <Ionicons name={focused ? nombre : `${nombre}-outline`} color={color} size={size - 1} />;
   }
