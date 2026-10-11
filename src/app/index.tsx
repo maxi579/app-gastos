@@ -6,6 +6,7 @@ import { Modal, Pressable, RefreshControl, ScrollView, SectionList, StyleSheet, 
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import FormularioGasto from '../components/FormularioGasto';
 import { useAviso } from '../components/Toast';
+import { Objetivo } from '../components/Tutorial';
 import { Boton, confirmar, Encabezado, Texto as Text } from '../components/ui';
 import { estiloCategoria } from '../constants/categorias';
 import { colores, colorSegunPorcentaje, degradados, radios, tipografia } from '../constants/tema';
@@ -258,6 +259,7 @@ export default function Inicio() {
               </View>
             )}
 
+            <Objetivo id="resumen-mes">
             <Animated.View entering={FadeInDown.springify()}>
               <LinearGradient colors={degradados.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
                 <Text style={styles.heroEtiqueta}>Este mes tenés que pagar</Text>
@@ -298,6 +300,7 @@ export default function Inicio() {
                 )}
               </LinearGradient>
             </Animated.View>
+            </Objetivo>
 
             {tips.length > 0 && (
               <Animated.View entering={FadeInDown.delay(80).springify()} style={styles.asistente}>

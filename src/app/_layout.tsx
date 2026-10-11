@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View, type ColorValue } from 'react-native';
 import PantallaLogin from '../components/PantallaLogin';
 import { ProveedorAvisos } from '../components/Toast';
+import { Objetivo, ProveedorTutorial } from '../components/Tutorial';
 import { colores, fuentes } from '../constants/tema';
 import * as Linking from 'expo-linking';
 import { escucharToques } from '../lib/avisos';
@@ -93,6 +94,7 @@ export default function Layout() {
   } else {
     contenido = (
       <ProveedorDatos fuente={fuente}>
+        <ProveedorTutorial listo>
         <Tabs
           screenOptions={{
             headerShown: false,
@@ -104,21 +106,23 @@ export default function Layout() {
           }}
         >
           <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: icono('home') }} />
-          <Tabs.Screen name="fijos" options={{ title: 'Fijos', tabBarIcon: icono('repeat') }} />
+          <Tabs.Screen name="fijos" options={{ title: 'Fijos', tabBarIcon: icono('repeat', 'pestana-fijos') }} />
           <Tabs.Screen
             name="cargar"
             options={{
               title: 'Cargar',
               tabBarLabel: () => null,
               tabBarIcon: () => (
-                <View style={styles.botonCargar}>
-                  <Ionicons name="add" size={28} color={colores.sobrePrimario} />
-                </View>
+                <Objetivo id="pestana-cargar">
+                  <View style={styles.botonCargar}>
+                    <Ionicons name="add" size={28} color={colores.sobrePrimario} />
+                  </View>
+                </Objetivo>
               ),
             }}
           />
-          <Tabs.Screen name="chat" options={{ title: 'Asistente', tabBarIcon: icono('chatbubbles') }} />
-          <Tabs.Screen name="mas" options={{ title: 'Más', tabBarIcon: icono('grid') }} />
+          <Tabs.Screen name="chat" options={{ title: 'Asistente', tabBarIcon: icono('chatbubbles', 'pestana-asistente') }} />
+          <Tabs.Screen name="mas" options={{ title: 'Más', tabBarIcon: icono('grid', 'pestana-mas') }} />
           {/* Pantallas sin pestaña: se abren desde "Más" o desde Inicio */}
           <Tabs.Screen name="cuotas" options={{ href: null, title: 'Cuotas' }} />
           <Tabs.Screen name="comprar" options={{ href: null, title: '¿Lo compro?' }} />
@@ -130,6 +134,7 @@ export default function Layout() {
           <Tabs.Screen name="revisar" options={{ href: null, title: 'Pagos para revisar' }} />
           <Tabs.Screen name="automatico" options={{ href: null, title: 'Anotar sin esfuerzo' }} />
         </Tabs>
+        </ProveedorTutorial>
       </ProveedorDatos>
     );
   }
@@ -142,10 +147,12 @@ export default function Layout() {
   );
 }
 
-// Ícono relleno en la pestaña activa y de contorno en las demás
-function icono(nombre: 'home' | 'repeat' | 'chatbubbles' | 'grid') {
+// Ícono relleno en la pestaña activa y de contorno en las demás.
+// Con objetivo, el recorrido guiado puede iluminar esa pestaña.
+function icono(nombre: 'home' | 'repeat' | 'chatbubbles' | 'grid', objetivo?: string) {
   function IconoPestana({ color, size, focused }: { color: ColorValue; size: number; focused: boolean }) {
-    return <Ionicons name={focused ? nombre : `${nombre}-outline`} color={color} size={size - 1} />;
+    const dibujo = <Ionicons name={focused ? nombre : `${nombre}-outline`} color={color} size={size - 1} />;
+    return objetivo ? <Objetivo id={objetivo}>{dibujo}</Objetivo> : dibujo;
   }
   return IconoPestana;
 }

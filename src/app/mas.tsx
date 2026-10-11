@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router, type Href } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useTutorial } from '../components/Tutorial';
 import { Encabezado, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
 
@@ -33,6 +34,14 @@ const GRUPOS: { titulo: string; opciones: Opcion[] }[] = [
 ];
 
 export default function Mas() {
+  const { empezar } = useTutorial();
+
+  // El recorrido arranca en Inicio
+  function verRecorrido() {
+    router.navigate('/');
+    setTimeout(empezar, 600);
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido}>
       <Encabezado titulo="Más" />
@@ -59,6 +68,11 @@ export default function Mas() {
           </View>
         </View>
       ))}
+
+      <Pressable style={({ pressed }) => [styles.recorrido, pressed && { opacity: 0.7 }]} onPress={verRecorrido}>
+        <Ionicons name="school" size={20} color={colores.primario} />
+        <Text style={styles.textoRecorrido}>Ver el recorrido guiado de nuevo</Text>
+      </Pressable>
     </ScrollView>
   );
 }
@@ -74,4 +88,16 @@ const styles = StyleSheet.create({
   icono: { width: 40, height: 40, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   titulo: { color: colores.texto, fontSize: 16, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
+  recorrido: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colores.primario,
+    borderRadius: radios.grande,
+    padding: 14,
+  },
+  textoRecorrido: { color: colores.primario, fontSize: 15, fontWeight: '600' },
 });

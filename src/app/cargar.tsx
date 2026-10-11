@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'reac
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import FormularioGasto from '../components/FormularioGasto';
 import { useAviso } from '../components/Toast';
+import { Objetivo } from '../components/Tutorial';
 import { Boton, Encabezado, Entrada as TextInput, Tarjeta, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
 import { programarRecordatorios } from '../lib/avisos';
@@ -149,6 +150,7 @@ export default function Cargar() {
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
       <Encabezado titulo="¿En qué gastaste?" subtitulo="Escribilo como te salga y la app lo entiende." />
 
+      <Objetivo id="caja-gasto">
       <View style={styles.cajaEntrada}>
         <Ionicons name="chatbubble-ellipses-outline" size={20} color={colores.primario} style={{ marginTop: 2 }} />
         <TextInput
@@ -160,9 +162,11 @@ export default function Cargar() {
           onSubmitEditing={() => interpretar()}
         />
       </View>
+      </Objetivo>
       <Boton titulo="Siguiente" onPress={() => interpretar()} estilo={{ marginTop: 12 }} />
 
       {!valores && (
+        <Objetivo id="escaner">
         <View style={styles.escaner}>
           {escaneando ? (
             <View style={styles.leyendo}>
@@ -186,6 +190,7 @@ export default function Cargar() {
             </>
           )}
         </View>
+        </Objetivo>
       )}
 
       {!valores && (
