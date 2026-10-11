@@ -60,6 +60,12 @@
         "projectId": "7d1fe309-48d4-43e4-b9c9-c531b8704e9a"
       }
     },
-    "owner": "maxi755"
+    "owner": "maxi755",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/7d1fe309-48d4-43e4-b9c9-c531b8704e9a"
+    }
   }
 }
