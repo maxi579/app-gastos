@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import FormularioMedioPago from '../components/FormularioMedioPago';
+import GuiaSiri from '../components/GuiaSiri';
+import PagosAutomaticos from '../components/PagosAutomaticos';
 import { useAviso } from '../components/Toast';
 import { confirmar, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
@@ -15,6 +17,7 @@ import {
   desactivarAvisos,
   desactivarRecordatorio,
   programarAvisosCierre,
+  programarAvisosVencimiento,
   recordatorioActivado,
 } from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
@@ -97,7 +100,12 @@ export default function Ajustes() {
     }
     const ok = await activarAvisos(medios);
     setAvisos(ok);
-    if (ok) aviso('Te aviso un día antes de cada cierre 🔔');
+    if (ok) {
+      Promise.all([datos.fijos.listar(), datos.pagosFijos.listar()])
+        .then(([fijos, pagos]) => programarAvisosVencimiento(fijos, pagos))
+        .catch(() => {});
+      aviso('Te aviso un día antes de cada cierre y vencimiento 🔔');
+    }
     else aviso('No tengo permiso para avisarte. Activalo en la configuración del celular.', 'error');
   }
 
@@ -241,6 +249,11 @@ export default function Ajustes() {
         ))}
       </View>
 
+      <Text style={[styles.seccion, styles.separada]}>Anotar más rápido</Text>
+      {/* Siri y Atajos son de iPhone (en la web se muestra para la demo) */}
+      {Platform.OS !== 'android' && <GuiaSiri />}
+      <PagosAutomaticos />
+
       {avisosDisponibles && (
         <>
           <Text style={[styles.seccion, styles.separada]}>Avisos</Text>
@@ -267,9 +280,11 @@ export default function Ajustes() {
               <Ionicons name="notifications" size={20} color={colores.primario} />
             </View>
             <View style={styles.info}>
-              <Text style={styles.nombre}>Avisarme antes del cierre</Text>
+              <Text style={styles.nombre}>Avisarme antes del cierre y vencimientos</Text>
               <Text style={styles.detalle}>
-                {datos.esDemo ? 'No disponible en el modo de prueba.' : 'Te aviso un día antes de que cierre cada tarjeta.'}
+                {datos.esDemo
+                  ? 'No disponible en el modo de prueba.'
+                  : 'Un día antes de que cierre cada tarjeta y de que venza cada gasto fijo.'}
               </Text>
             </View>
             <Switch

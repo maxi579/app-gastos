@@ -32,6 +32,14 @@
           "image": "./assets/images/splash-icon.png",
           "imageWidth": 76
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Para leer las capturas y fotos de tus tickets y comprobantes.",
+          "cameraPermission": "Para sacarle una foto al ticket o la factura y anotarla sola.",
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {

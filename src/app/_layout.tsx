@@ -96,8 +96,13 @@ export default function Layout() {
           />
           <Tabs.Screen name="comprar" options={{ title: 'Comprar', tabBarIcon: icono('bag-check') }} />
           <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: icono('settings') }} />
-          {/* Pantalla sin pestaña: se abre desde Cargar */}
+          {/* Pantallas sin pestaña: se abren desde Inicio o Cargar */}
           <Tabs.Screen name="resumen" options={{ href: null, title: 'Revisar resumen' }} />
+          <Tabs.Screen name="fijos" options={{ href: null, title: 'Fijos y suscripciones' }} />
+          <Tabs.Screen name="efectivo" options={{ href: null, title: 'Efectivo' }} />
+          <Tabs.Screen name="activos" options={{ href: null, title: 'Activos' }} />
+          <Tabs.Screen name="chat" options={{ href: null, title: 'Asistente con IA' }} />
+          <Tabs.Screen name="revisar" options={{ href: null, title: 'Pagos para revisar' }} />
         </Tabs>
       </ProveedorDatos>
     );

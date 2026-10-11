@@ -1,4 +1,6 @@
+import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -104,11 +106,23 @@ export function Tarjeta({ children, estilo }: { children: ReactNode; estilo?: Vi
   return <View style={[styles.tarjeta, estilo]}>{children}</View>;
 }
 
-// Título grande de cada pantalla, con espacio para el notch del celular
-export function Encabezado({ titulo, subtitulo }: { titulo: string; subtitulo?: string }) {
+// Título grande de cada pantalla, con espacio para el notch del celular.
+// volver: muestra "← Volver" (para las pantallas que no tienen pestaña propia)
+export function Encabezado({ titulo, subtitulo, volver = false }: { titulo: string; subtitulo?: string; volver?: boolean }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ paddingTop: insets.top + 12, marginBottom: 18 }}>
+      {volver && (
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.navigate('/'))}
+          hitSlop={12}
+          style={({ pressed }) => [styles.volver, pressed && styles.presionado]}
+          accessibilityLabel="Volver"
+        >
+          <Ionicons name="chevron-back" size={20} color={colores.primario} />
+          <Texto style={styles.textoVolver}>Volver</Texto>
+        </Pressable>
+      )}
       <Texto style={styles.tituloGrande}>{titulo}</Texto>
       {subtitulo && <Texto style={styles.subtituloGrande}>{subtitulo}</Texto>}
     </View>
@@ -149,6 +163,8 @@ const styles = StyleSheet.create({
     borderColor: colores.borde,
   },
   tarjeta: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, borderWidth: 1, borderColor: colores.borde },
+  volver: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 8, marginLeft: -4 },
+  textoVolver: { color: colores.primario, fontSize: 16, fontWeight: '600' },
   tituloGrande: { color: colores.texto, fontSize: 30, fontWeight: '800', letterSpacing: -0.8 },
   subtituloGrande: { color: colores.textoSecundario, fontSize: 15, marginTop: 4 },
 });

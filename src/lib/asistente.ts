@@ -14,7 +14,7 @@ export function emojiDe(tono: Tono) {
   return TONOS.find((t) => t.valor === tono)?.emoji ?? '🙂';
 }
 
-export type Consejo = { icono: 'wallet' | 'calendar' | 'restaurant' | 'cash'; texto: string };
+export type Consejo = { icono: 'wallet' | 'calendar' | 'restaurant' | 'cash' | 'receipt'; texto: string };
 
 type Contexto = {
   tono: Tono;
@@ -23,6 +23,10 @@ type Contexto = {
   porcentaje: number | null;
   medios: MedioPago[];
   gastos: GastoGuardado[];
+  /** Gastos fijos sin pagar que vencen pronto (días: 0 = hoy, negativo = vencido) */
+  fijosPorVencer?: { descripcion: string; dias: number }[];
+  /** Efectivo que sacaste y todavía no anotaste en qué lo gastaste */
+  efectivoSinAnotar?: number;
 };
 
 type Frases = Record<Tono, string>;
@@ -78,7 +82,28 @@ export function consejos(ctx: Contexto): Consejo[] {
     break;
   }
 
-  // 3. Muchas salidas a comer esta semana
+  // 3. Un gasto fijo vence pronto o ya venció
+  const fijo = ctx.fijosPorVencer?.[0];
+  if (fijo) {
+    const cuando = fijo.dias < 0 ? 'ya venció' : fijo.dias === 0 ? 'vence hoy' : fijo.dias === 1 ? 'vence mañana' : `vence en ${fijo.dias} días`;
+    decir('receipt', {
+      amable: `${fijo.descripcion} ${cuando}. Cuando lo pagues, marcalo en Fijos así no te preocupás 😊`,
+      directo: `${fijo.descripcion} ${cuando}. Marcalo en Fijos cuando lo pagues.`,
+      estricto: `${fijo.descripcion} ${cuando}. Pagalo y marcalo, no acumules recargos.`,
+    });
+  }
+
+  // 4. Efectivo que no se anotó
+  if (ctx.efectivoSinAnotar && ctx.efectivoSinAnotar >= 1000) {
+    const monto = `$\u00A0${Math.round(ctx.efectivoSinAnotar).toLocaleString('es-AR')}`;
+    decir('cash', {
+      amable: `Tenés ${monto} en efectivo sin anotar. ¿Te acordás en qué los gastaste? 🤔`,
+      directo: `${monto} de efectivo sin anotar. Anotalos en Efectivo.`,
+      estricto: `Faltan ${monto} de efectivo por anotar. Lo que no se anota, se escapa.`,
+    });
+  }
+
+  // 5. Muchas salidas a comer esta semana
   const salidas = ctx.gastos.filter((g) => {
     if (g.categoria !== 'Comida y salidas') return false;
     const [a, m, d] = g.fecha_compra.split('-').map(Number);

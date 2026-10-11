@@ -10,9 +10,11 @@ import { Boton, confirmar, Encabezado, Texto as Text } from '../components/ui';
 import { estiloCategoria } from '../constants/categorias';
 import { colores, colorSegunPorcentaje, degradados, radios, tipografia } from '../constants/tema';
 import { consejos, emojiDe, TONOS } from '../lib/asistente';
-import { avisosDisponibles, programarAvisosCierre, programarRecordatorios, recordatorioActivado } from '../lib/avisos';
+import { avisosDisponibles, programarAvisosCierre, programarAvisosVencimiento, programarRecordatorios, recordatorioActivado } from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
 import type { GastoConMedio, Perfil } from '../lib/datos';
+import { balanceEfectivo } from '../lib/efectivo';
+import { anotarDebitos, fijosDelMes, pendienteDeFijos, totalMensualFijos } from '../lib/fijos';
 import {
   diaDeLibertad,
   formatearDia,
@@ -28,7 +30,9 @@ import {
 import { montoATexto } from '../lib/formato';
 import { fechaDesdeTexto, prepararGasto, type ValoresGasto } from '../lib/gastos';
 import { useIndicadores } from '../lib/indicadores';
-import type { Categoria, MedioPago } from '../lib/tipos';
+import { importarNotificaciones } from '../lib/notificaciones';
+import { registrarPush } from '../lib/push';
+import type { Categoria, Fijo, MedioPago, PagoFijo, Retiro, Sugerencia } from '../lib/tipos';
 
 type Edicion = { gasto: GastoConMedio; valores: ValoresGasto };
 type SeccionDia = { titulo: string; total: number; data: GastoConMedio[] };
@@ -51,18 +55,45 @@ export default function Inicio() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [conRecordatorio, setConRecordatorio] = useState(true);
+  const [fijos, setFijos] = useState<Fijo[]>([]);
+  const [pagos, setPagos] = useState<PagoFijo[]>([]);
+  const [retiros, setRetiros] = useState<Retiro[]>([]);
+  const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const [nuevoPerfil, todos, listaMedios] = await Promise.all([datos.perfil(), datos.gastos(), datos.medios()]);
+      const [nuevoPerfil, listaMedios, listaFijos, listaPagos, gastosAntes] = await Promise.all([
+        datos.perfil(),
+        datos.medios(),
+        datos.fijos.listar().catch(() => []),
+        datos.pagosFijos.listar().catch(() => []),
+        datos.gastos(),
+      ]);
+      // Los débitos automáticos (Netflix en la tarjeta...) que ya vencieron se anotan solos
+      const anotados = await anotarDebitos(datos, listaFijos, listaPagos, listaMedios, gastosAntes).catch(() => []);
+      if (anotados.length > 0) aviso(`Anoté ${anotados.join(', ')} (débito automático) ✓`);
+      // Android: lo que detectó el lector de notificaciones pasa a "pagos para revisar"
+      await importarNotificaciones(datos).catch(() => 0);
+      const [todos, pagosActuales, listaRetiros, listaSugerencias] = await Promise.all([
+        anotados.length > 0 ? datos.gastos() : Promise.resolve(gastosAntes),
+        datos.pagosFijos.listar().catch(() => listaPagos),
+        datos.retiros.listar().catch(() => []),
+        datos.sugerencias.listar().catch(() => []),
+      ]);
       setPerfil(nuevoPerfil);
       setGastos(todos);
       setMeses(proyectarCuotas(todos, new Date(), 2));
       setMedios(listaMedios);
+      setFijos(listaFijos);
+      setPagos(pagosActuales);
+      setRetiros(listaRetiros);
+      setSugerencias(listaSugerencias.filter((s) => s.estado === 'pendiente'));
       setCargado(true);
       if (!datos.esDemo) {
         programarAvisosCierre(listaMedios).catch(() => {});
+        programarAvisosVencimiento(listaFijos, pagosActuales).catch(() => {});
+        registrarPush(datos);
         const hoyTexto = formatearFecha(new Date());
         programarRecordatorios(todos.some((g) => g.fecha_compra === hoyTexto)).catch(() => {});
         recordatorioActivado().then(setConRecordatorio);
@@ -130,7 +161,12 @@ export default function Inicio() {
   const { nombre, sueldo, tono } = perfil;
   const primerNombre = nombre ? nombre.split(' ')[0] : null;
   const esteMes = meses[0] ?? { ars: 0, usd: 0 };
-  const totalEsteMes = totalEnPesos(esteMes, dolarTarjeta);
+  const delMes = fijosDelMes(fijos, pagos, hoy);
+  const fijosPendientes = pendienteDeFijos(delMes, dolarTarjeta);
+  const fijosPorMes = totalMensualFijos(fijos, dolarTarjeta);
+  const efectivo = balanceEfectivo(retiros, gastos, hoy);
+  // Lo de este mes: cuotas y compras + los fijos que todavía no se pagaron
+  const totalEsteMes = totalEnPesos(esteMes, dolarTarjeta) + fijosPendientes.total;
   const proximoMes = meses[1] ? totalEnPesos(meses[1], dolarTarjeta) : 0;
   const porcentaje = sueldo ? (totalEsteMes / sueldo) * 100 : null;
   const colorEstado = colorSegunPorcentaje(porcentaje);
@@ -138,7 +174,28 @@ export default function Inicio() {
   const maximoCategoria = categorias[0]?.total ?? 1;
   const mejorTarjeta = tarjetasParaHoy(medios, hoy)[0] ?? null;
   const libertad = diaDeLibertad(gastos, hoy);
-  const tips = cargado ? consejos({ tono, hoy, porcentaje, medios, gastos }) : [];
+  const fijosPorVencer = delMes
+    .filter((f) => !f.pago && !f.fijo.debito_automatico && f.dias <= 3)
+    .map((f) => ({ descripcion: f.fijo.descripcion, dias: f.dias }));
+  const tips = cargado
+    ? consejos({ tono, hoy, porcentaje, medios, gastos, fijosPorVencer, efectivoSinAnotar: efectivo.sinAnotar })
+    : [];
+  const herramientas: { icono: keyof typeof Ionicons.glyphMap; titulo: string; detalle: string; destino: Href }[] = [
+    {
+      icono: 'repeat',
+      titulo: 'Fijos',
+      detalle: fijos.length > 0 ? `${formatearMonto(Math.round(fijosPorMes.total))} por mes` : 'Luz, gas, Netflix...',
+      destino: '/fijos' as Href,
+    },
+    {
+      icono: 'cash',
+      titulo: 'Efectivo',
+      detalle: efectivo.sinAnotar > 0 ? `${formatearMonto(Math.round(efectivo.sinAnotar))} sin anotar` : 'Lo que pagás en mano',
+      destino: '/efectivo' as Href,
+    },
+    { icono: 'trending-up', titulo: 'Activos', detalle: 'Lo que tenés y cuánto rinde', destino: '/activos' as Href },
+    { icono: 'chatbubbles', titulo: 'Asistente IA', detalle: 'Preguntale lo que quieras', destino: '/chat' as Href },
+  ];
   const pasos = [
     { hecho: sueldo !== null, texto: 'Contame cuánto cobrás por mes', destino: '/ajustes' as Href },
     { hecho: medios.length > 0, texto: 'Agregá tu tarjeta o billetera', destino: '/ajustes' as Href },
@@ -168,6 +225,21 @@ export default function Inicio() {
               </View>
             )}
 
+            {sugerencias.length > 0 && (
+              <Pressable style={({ pressed }) => [styles.sugerencias, pressed && { opacity: 0.8 }]} onPress={() => router.push('/revisar' as Href)}>
+                <View style={styles.utilIcono}>
+                  <Ionicons name="mail-unread" size={20} color={colores.primario} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.utilValor}>
+                    {sugerencias.length === 1 ? 'Encontré 1 pago para anotar' : `Encontré ${sugerencias.length} pagos para anotar`}
+                  </Text>
+                  <Text style={styles.utilDetalle}>Revisalos y anotalos con un toque</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />
+              </Pressable>
+            )}
+
             {faltanPasos && (
               <View style={styles.pasos}>
                 <Text style={styles.pasosTitulo}>Primeros pasos</Text>
@@ -193,12 +265,16 @@ export default function Inicio() {
             <Animated.View entering={FadeInDown.springify()}>
               <LinearGradient colors={degradados.hero} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
                 <Text style={styles.heroEtiqueta}>Este mes tenés que pagar</Text>
-                <Text style={styles.heroMonto}>{formatearMonto(Math.round(esteMes.ars))}</Text>
+                <Text style={styles.heroMonto}>{formatearMonto(Math.round(esteMes.ars + fijosPendientes.total))}</Text>
                 {esteMes.usd > 0 && (
                   <Text style={styles.heroDolares}>
                     y {formatearMonto(esteMes.usd, 'USD')}
                     {dolarTarjeta ? ` (unos ${formatearMonto(Math.round(esteMes.usd * dolarTarjeta))})` : ''}
                   </Text>
+                )}
+
+                {fijosPendientes.total > 0 && (
+                  <Text style={styles.heroDolares}>Incluye {formatearMonto(Math.round(fijosPendientes.total))} de fijos que faltan pagar</Text>
                 )}
 
                 {porcentaje !== null ? (
@@ -220,6 +296,7 @@ export default function Inicio() {
                     <Ionicons name="calendar-outline" size={16} color="#a7f3d0" />
                     <Text style={styles.heroProximoTexto}>
                       En {MESES[(hoy.getMonth() + 1) % 12]} ya tenés {formatearMonto(Math.round(proximoMes))} para pagar
+                      {fijosPorMes.total > 0 ? `, más unos ${formatearMonto(Math.round(fijosPorMes.total))} de fijos` : ''}
                     </Text>
                   </View>
                 )}
@@ -275,6 +352,22 @@ export default function Inicio() {
                     <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />
                   </Pressable>
                 )}
+              </Animated.View>
+            )}
+
+            {cargado && (
+              <Animated.View entering={FadeInDown.delay(170).springify()} style={styles.herramientas}>
+                {herramientas.map((h) => (
+                  <Pressable key={h.titulo} style={({ pressed }) => [styles.herramienta, pressed && { opacity: 0.7 }]} onPress={() => router.push(h.destino)}>
+                    <View style={styles.utilIcono}>
+                      <Ionicons name={h.icono} size={20} color={colores.primario} />
+                    </View>
+                    <Text style={styles.herramientaTitulo}>{h.titulo}</Text>
+                    <Text style={styles.herramientaDetalle} numberOfLines={2}>
+                      {h.detalle}
+                    </Text>
+                  </Pressable>
+                ))}
               </Animated.View>
             )}
 
@@ -430,6 +523,30 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   demoTexto: { color: '#fde68a', fontSize: 14, flex: 1 },
+  sugerencias: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    borderWidth: 1,
+    borderColor: colores.primario,
+    padding: 14,
+    marginBottom: 14,
+  },
+  herramientas: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 14 },
+  herramienta: {
+    width: '47%',
+    flexGrow: 1,
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    borderWidth: 1,
+    borderColor: colores.borde,
+    padding: 14,
+    gap: 4,
+  },
+  herramientaTitulo: { color: colores.texto, fontSize: 16, fontWeight: '700', marginTop: 6 },
+  herramientaDetalle: { color: colores.textoSecundario, fontSize: 13, lineHeight: 18 },
   pasos: {
     backgroundColor: colores.superficie,
     borderRadius: radios.grande,

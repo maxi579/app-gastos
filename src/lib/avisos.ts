@@ -1,15 +1,18 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { formatearFecha, proximoCierre } from './finanzas';
-import type { MedioPago } from './tipos';
+import { formatearFecha, formatearMonto, proximoCierre } from './finanzas';
+import { mesDe, vencimientoDelMes } from './fijos';
+import type { Fijo, MedioPago, PagoFijo } from './tipos';
 
-// Dos tipos de avisos, los dos son notificaciones locales (las programa el mismo celular):
-// no necesitan servidor y funcionan en Expo Go.
+// Avisos con notificaciones locales (las programa el mismo celular): no necesitan servidor y funcionan en Expo Go.
 // - Cierre: un día antes del cierre de cada tarjeta, a las 10.
+// - Vencimiento: un día antes de que venza cada gasto fijo que no se debita solo (mismo interruptor que el cierre).
 // - Recordatorio: a la noche, solo los días en que no anotaste ningún gasto.
+// - Efectivo: los domingos a la noche, para anotar lo que pagaste en efectivo en la semana.
 
-const CLAVES = { cierres: 'avisos-cierre-activados', recordatorio: 'recordatorio-activado' };
+const CLAVES = { cierres: 'avisos-cierre-activados', recordatorio: 'recordatorio-activado', efectivo: 'recordatorio-efectivo' };
+const MESES_DE_VENCIMIENTOS = 2;
 const CANAL = 'avisos';
 const MESES_DE_CIERRES = 3;
 const DIAS_DE_RECORDATORIOS = 14;
@@ -66,6 +69,7 @@ export async function desactivarAvisos() {
   if (!avisosDisponibles) return;
   await AsyncStorage.setItem(CLAVES.cierres, 'no');
   await cancelarTipo('cierre-');
+  await cancelarTipo('vence-');
 }
 
 // Reprograma los avisos de los próximos meses. Se llama cada vez que cambian las tarjetas.
@@ -94,6 +98,62 @@ export async function programarAvisosCierre(medios: MedioPago[]) {
       referencia = new Date(cierre.getFullYear(), cierre.getMonth(), cierre.getDate() + 1);
     }
   }
+}
+
+// ---------- Vencimiento de gastos fijos ----------
+
+// Reprograma los avisos de vencimiento de este mes y el que viene, salteando lo que ya está pagado.
+export async function programarAvisosVencimiento(fijos: Fijo[], pagos: PagoFijo[]) {
+  if (!(await avisosActivados())) return;
+  configurar();
+  await cancelarTipo('vence-');
+
+  const ahora = new Date();
+  for (const fijo of fijos) {
+    if (!fijo.activo || fijo.debito_automatico) continue;
+    for (let i = 0; i < MESES_DE_VENCIMIENTOS; i++) {
+      const vence = vencimientoDelMes(fijo.dia, new Date(ahora.getFullYear(), ahora.getMonth() + i, 1));
+      if (pagos.some((p) => p.fijo_id === fijo.id && p.mes === mesDe(vence))) continue;
+      const aviso = new Date(vence.getFullYear(), vence.getMonth(), vence.getDate() - 1, 10, 0);
+      if (aviso <= ahora) continue;
+      await Notifications.scheduleNotificationAsync({
+        identifier: `vence-${fijo.id}-${formatearFecha(vence)}`,
+        content: {
+          title: `Mañana vence ${fijo.descripcion} 🧾`,
+          body: fijo.monto ? `Son ${formatearMonto(fijo.monto, fijo.moneda)}. Cuando lo pagues, marcalo en Fijos.` : 'Cargá el monto de la factura y marcalo como pagado.',
+          data: { url: '/fijos' },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: aviso, channelId: CANAL },
+      });
+    }
+  }
+}
+
+// ---------- Efectivo de la semana ----------
+
+export const recordatorioEfectivoActivado = () => estaActivado(CLAVES.efectivo);
+
+export async function activarRecordatorioEfectivo() {
+  if (!avisosDisponibles || !(await pedirPermiso())) return false;
+  await AsyncStorage.setItem(CLAVES.efectivo, 'si');
+  await cancelarTipo('efectivo-');
+  await Notifications.scheduleNotificationAsync({
+    identifier: 'efectivo-semanal',
+    content: {
+      title: '¿Pagaste algo en efectivo esta semana? 💵',
+      body: 'El kiosco, la verdulería, el colectivo... Anotalo ahora así no se pierde.',
+      data: { url: '/efectivo' },
+    },
+    // 1 = domingo
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 20, minute: 0, channelId: CANAL },
+  });
+  return true;
+}
+
+export async function desactivarRecordatorioEfectivo() {
+  if (!avisosDisponibles) return;
+  await AsyncStorage.setItem(CLAVES.efectivo, 'no');
+  await cancelarTipo('efectivo-');
 }
 
 // ---------- Recordatorio de la noche ----------
