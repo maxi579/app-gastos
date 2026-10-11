@@ -81,6 +81,8 @@ export async function ingresarConGoogle() {
     options: { redirectTo: vuelta, skipBrowserRedirect: true, queryParams: { prompt: 'select_account' } },
   });
   if (error || !data.url) throw new Error(error?.message ?? 'No se pudo abrir Google.');
+  // DIAGNÓSTICO TEMPORAL: qué dirección de vuelta le pedimos a Supabase
+  console.log('[ingreso-google] vuelta =', vuelta, '| redirect_to en el pedido =', new URL(data.url).searchParams.get('redirect_to'));
   await marcarPedido();
 
   // En la web vamos directo a Google; al volver, el layout ve el link y crea la sesión

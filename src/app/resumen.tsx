@@ -117,7 +117,7 @@ export default function Resumen() {
         <Ionicons name="chevron-back" size={20} color={colores.primario} />
         <Text style={styles.volverTexto}>Volver</Text>
       </Pressable>
-      <Encabezado titulo="Revisar el resumen" subtitulo="Te muestro los gastos de la tarjeta que te olvidaste de anotar." />
+      <Encabezado titulo="Revisar el resumen" subtitulo="Te muestro los gastos de la tarjeta que te olvidaste de anotar." volver />
 
       {etapa === 'elegir' && (
         <View style={styles.tarjeta}>

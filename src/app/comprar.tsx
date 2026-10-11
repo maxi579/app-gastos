@@ -91,7 +91,7 @@ export default function Comprar() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
-      <Encabezado titulo="¿Lo compro?" subtitulo="Poné el precio y te digo si te conviene." />
+      <Encabezado titulo="¿Lo compro?" subtitulo="Poné el precio y te digo si te conviene." volver />
 
       <View style={styles.tarjeta}>
         <Text style={styles.pregunta}>¿Cuánto cuesta?</Text>

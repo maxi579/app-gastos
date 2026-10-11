@@ -175,7 +175,7 @@ export default function Fijos() {
         contentContainerStyle={styles.contenido}
         refreshControl={<RefreshControl refreshing={cargando} onRefresh={cargar} tintColor={colores.primario} />}
       >
-        <Encabezado titulo="Fijos y suscripciones" subtitulo="Lo que pagás todos los meses, en un solo lugar" volver />
+        <Encabezado titulo="Fijos y suscripciones" subtitulo="Lo que pagás todos los meses, en un solo lugar" />
 
         {fijos.length > 0 && (
           <View style={styles.resumen}>

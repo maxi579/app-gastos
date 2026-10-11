@@ -180,21 +180,17 @@ export default function Inicio() {
   const tips = cargado
     ? consejos({ tono, hoy, porcentaje, medios, gastos, fijosPorVencer, efectivoSinAnotar: efectivo.sinAnotar })
     : [];
+  // Fijos y el asistente ya están en la barra de abajo: acá van los accesos que más se usan del resto
   const herramientas: { icono: keyof typeof Ionicons.glyphMap; titulo: string; detalle: string; destino: Href }[] = [
-    {
-      icono: 'repeat',
-      titulo: 'Fijos',
-      detalle: fijos.length > 0 ? `${formatearMonto(Math.round(fijosPorMes.total))} por mes` : 'Luz, gas, Netflix...',
-      destino: '/fijos' as Href,
-    },
     {
       icono: 'cash',
       titulo: 'Efectivo',
-      detalle: efectivo.sinAnotar > 0 ? `${formatearMonto(Math.round(efectivo.sinAnotar))} sin anotar` : 'Lo que pagás en mano',
+      detalle: efectivo.sinAnotar > 0 ? `${formatearMonto(Math.round(efectivo.sinAnotar))} sin anotar` : 'Contá tu billetera',
       destino: '/efectivo' as Href,
     },
-    { icono: 'trending-up', titulo: 'Activos', detalle: 'Lo que tenés y cuánto rinde', destino: '/activos' as Href },
-    { icono: 'chatbubbles', titulo: 'Asistente IA', detalle: 'Preguntale lo que quieras', destino: '/chat' as Href },
+    { icono: 'trending-up', titulo: 'Activos', detalle: '¿Cuánto me rinde?', destino: '/activos' as Href },
+    { icono: 'calendar', titulo: 'Cuotas', detalle: 'Mes por mes', destino: '/cuotas' as Href },
+    { icono: 'bag-check', titulo: '¿Lo compro?', detalle: 'Antes de comprar', destino: '/comprar' as Href },
   ];
   const pasos = [
     { hecho: sueldo !== null, texto: 'Contame cuánto cobrás por mes', destino: '/ajustes' as Href },

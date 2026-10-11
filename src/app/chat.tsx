@@ -74,7 +74,7 @@ export default function Chat() {
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => lista.current?.scrollToEnd({ animated: true })}
       >
-        <Encabezado titulo="Asistente con IA" subtitulo="Preguntame lo que quieras sobre tu plata" volver />
+        <Encabezado titulo="Asistente con IA" subtitulo="Preguntame lo que quieras sobre tu plata" />
 
         {mensajes.length === 0 && (
           <View>

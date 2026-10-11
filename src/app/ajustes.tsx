@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import FormularioMedioPago from '../components/FormularioMedioPago';
-import GuiaSiri from '../components/GuiaSiri';
-import PagosAutomaticos from '../components/PagosAutomaticos';
 import { useAviso } from '../components/Toast';
 import { confirmar, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
@@ -142,7 +140,7 @@ export default function Ajustes() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
-      <Encabezado titulo="Ajustes" />
+      <Encabezado titulo="Ajustes" subtitulo="Tu sueldo, tus tarjetas y los avisos" volver />
 
       <Text style={styles.seccion}>¿Cuánto cobrás por mes?</Text>
       <Text style={styles.pista}>Lo uso para decirte qué parte de tu sueldo ya está ocupada.</Text>
@@ -248,11 +246,6 @@ export default function Ajustes() {
           </Pressable>
         ))}
       </View>
-
-      <Text style={[styles.seccion, styles.separada]}>Anotar más rápido</Text>
-      {/* Siri y Atajos son de iPhone (en la web se muestra para la demo) */}
-      {Platform.OS !== 'android' && <GuiaSiri />}
-      <PagosAutomaticos />
 
       {avisosDisponibles && (
         <>

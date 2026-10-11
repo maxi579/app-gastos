@@ -104,7 +104,7 @@ export default function Layout() {
           }}
         >
           <Tabs.Screen name="index" options={{ title: 'Inicio', tabBarIcon: icono('home') }} />
-          <Tabs.Screen name="cuotas" options={{ title: 'Cuotas', tabBarIcon: icono('calendar') }} />
+          <Tabs.Screen name="fijos" options={{ title: 'Fijos', tabBarIcon: icono('repeat') }} />
           <Tabs.Screen
             name="cargar"
             options={{
@@ -117,15 +117,17 @@ export default function Layout() {
               ),
             }}
           />
-          <Tabs.Screen name="comprar" options={{ title: 'Comprar', tabBarIcon: icono('bag-check') }} />
-          <Tabs.Screen name="ajustes" options={{ title: 'Ajustes', tabBarIcon: icono('settings') }} />
-          {/* Pantallas sin pestaña: se abren desde Inicio o Cargar */}
+          <Tabs.Screen name="chat" options={{ title: 'Asistente', tabBarIcon: icono('chatbubbles') }} />
+          <Tabs.Screen name="mas" options={{ title: 'Más', tabBarIcon: icono('grid') }} />
+          {/* Pantallas sin pestaña: se abren desde "Más" o desde Inicio */}
+          <Tabs.Screen name="cuotas" options={{ href: null, title: 'Cuotas' }} />
+          <Tabs.Screen name="comprar" options={{ href: null, title: '¿Lo compro?' }} />
+          <Tabs.Screen name="ajustes" options={{ href: null, title: 'Ajustes' }} />
           <Tabs.Screen name="resumen" options={{ href: null, title: 'Revisar resumen' }} />
-          <Tabs.Screen name="fijos" options={{ href: null, title: 'Fijos y suscripciones' }} />
           <Tabs.Screen name="efectivo" options={{ href: null, title: 'Efectivo' }} />
           <Tabs.Screen name="activos" options={{ href: null, title: 'Activos' }} />
-          <Tabs.Screen name="chat" options={{ href: null, title: 'Asistente con IA' }} />
           <Tabs.Screen name="revisar" options={{ href: null, title: 'Pagos para revisar' }} />
+          <Tabs.Screen name="automatico" options={{ href: null, title: 'Anotar sin esfuerzo' }} />
         </Tabs>
       </ProveedorDatos>
     );
@@ -140,7 +142,7 @@ export default function Layout() {
 }
 
 // Ícono relleno en la pestaña activa y de contorno en las demás
-function icono(nombre: 'home' | 'calendar' | 'bag-check' | 'settings') {
+function icono(nombre: 'home' | 'repeat' | 'chatbubbles' | 'grid') {
   function IconoPestana({ color, size, focused }: { color: ColorValue; size: number; focused: boolean }) {
     return <Ionicons name={focused ? nombre : `${nombre}-outline`} color={color} size={size - 1} />;
   }

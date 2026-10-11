@@ -48,7 +48,7 @@ export default function Cuotas() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido}>
-      <Encabezado titulo="Cuotas" subtitulo="Lo que ya tenés que pagar, mes por mes" />
+      <Encabezado titulo="Cuotas" subtitulo="Lo que ya tenés que pagar, mes por mes" volver />
 
       <View style={styles.resumen}>
         <Text style={styles.etiqueta}>Este mes tenés que pagar</Text>
