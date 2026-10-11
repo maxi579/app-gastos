@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { inflacionAcumulada, valuarActivo } from '../src/lib/activos';
-import { balanceEfectivo } from '../src/lib/efectivo';
+import { balanceEfectivo, compararConteo, saldoEsperado } from '../src/lib/efectivo';
 import { anotarDebitos, debitosParaAnotar, detectarRecurrentes, fijosDelMes, gastoDeFijo, pendienteDeFijos, totalMensualFijos, vencimientoDelMes } from '../src/lib/fijos';
 import { leerFecha } from '../src/lib/formato';
 import { interpretarNotificacion, leerImporte } from '../src/lib/interpretarNotificacion';
-import type { Activo, Fijo, GastoGuardado, MedioPago, PagoFijo, Retiro } from '../src/lib/tipos';
+import type { Activo, Conteo, Fijo, GastoGuardado, MedioPago, PagoFijo, Retiro } from '../src/lib/tipos';
 
 const hoy = new Date(2026, 9, 10); // 10 de octubre de 2026
 const visa: MedioPago = { id: 'v', nombre: 'Visa', banco: null, tipo: 'credito', red: 'visa', dia_cierre: 24, dia_vencimiento: 5 };
@@ -266,5 +266,41 @@ describe('notificaciones de billeteras', () => {
 
   it('una extracción del cajero es un retiro de efectivo', () => {
     assert.equal(interpretarNotificacion(notif('Extracción', 'Extrajiste $ 50.000 en un cajero', 'com.otro'))?.tipo, 'retiro');
+  });
+});
+
+describe('contar la billetera', () => {
+  const conteo = (monto: number, creado_en: string): Conteo => ({ id: creado_en, monto, creado_en });
+
+  it('sin conteos todavía no se puede comparar', () => {
+    assert.equal(saldoEsperado([], [], []), null);
+    assert.deepEqual(compararConteo(null, 10_000), { tipo: 'primero' });
+  });
+
+  it('suma lo que sacaste y resta lo que anotaste en efectivo desde el último conteo', () => {
+    const conteos = [conteo(30_000, '2026-10-05T12:00:00Z'), conteo(45_000, '2026-10-07T12:00:00Z')];
+    const retiros: Retiro[] = [
+      { id: 'r1', monto: 60_000, fecha: '2026-10-08', nota: null, creado_en: '2026-10-08T15:00:00+00:00' },
+      { id: 'r0', monto: 99_000, fecha: '2026-10-06', nota: null, creado_en: '2026-10-06T15:00:00+00:00' },
+    ];
+    const gastos = [
+      gasto('Verdulería', '2026-10-08', 12_000, { creado_en: '2026-10-08T18:00:00+00:00' }),
+      gasto('Con tarjeta', '2026-10-08', 50_000, { tarjeta_id: 'v', creado_en: '2026-10-08T18:00:00+00:00' }),
+      gasto('Antes del conteo', '2026-10-07', 7_000, { creado_en: '2026-10-07T11:00:00+00:00' }),
+    ];
+    const resultado = saldoEsperado(conteos, retiros, gastos);
+    assert.equal(resultado?.esperado, 45_000 + 60_000 - 12_000);
+    assert.equal(resultado?.ultimo.monto, 45_000);
+  });
+
+  it('sin hora de carga (modo demo), usa la fecha y no cuenta lo del mismo día', () => {
+    const resultado = saldoEsperado([conteo(10_000, '2026-10-07T15:00:00Z')], [], [gasto('x', '2026-10-07', 3_000), gasto('y', '2026-10-08', 2_000)]);
+    assert.equal(resultado?.esperado, 8_000);
+  });
+
+  it('dice si falta plata (gastó sin anotar), si sobra o si está justo', () => {
+    assert.deepEqual(compararConteo(93_000, 75_000), { tipo: 'falta', diferencia: 18_000 });
+    assert.deepEqual(compararConteo(20_000, 30_000), { tipo: 'sobra', diferencia: 10_000 });
+    assert.deepEqual(compararConteo(20_000, 19_800), { tipo: 'justo' });
   });
 });

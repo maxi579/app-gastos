@@ -1,7 +1,7 @@
 import type { Coleccion, FilaGasto, FuenteDatos, GastoConMedio } from './datos';
 import { calcularPrimerMesCuota, formatearFecha } from './finanzas';
 import { mesDe } from './fijos';
-import type { Activo, Categoria, Fijo, MedioPago, PagoFijo, Retiro, Sugerencia, Tono } from './tipos';
+import type { Activo, Categoria, Conteo, Fijo, MedioPago, PagoFijo, Retiro, Sugerencia, Tono } from './tipos';
 
 // Modo demo: los mismos datos que tendría un usuario real, pero en memoria.
 // Sirve para probar la app sin cuenta (y para mostrarla en el portfolio).
@@ -115,7 +115,8 @@ function coleccionDemo<T extends { id: string }, F>(iniciales: T[], prefijo: str
     },
     async crear(fila) {
       const id = (fila as { id?: string }).id ?? `${prefijo}-${siguiente++}`;
-      filas = [{ ...(fila as object), id } as T, ...filas];
+      // Como en la base real: cada fila nueva sabe cuándo se cargó (lo usa el conteo de la billetera)
+      filas = [{ creado_en: new Date().toISOString(), ...(fila as object), id } as unknown as T, ...filas];
     },
     async actualizar(id, cambios) {
       filas = filas.map((f) => (f.id === id ? { ...f, ...cambios } : f));
@@ -141,6 +142,8 @@ export function crearFuenteDemo(alSalir: () => void): FuenteDatos {
   // El internet de este mes ya está pagado, para que se vea un fijo tildado
   const pagos: PagoFijo[] = [{ id: 'p-internet', fijo_id: 'f-internet', mes: mesDe(new Date()), monto: 24_500, gasto_id: null }];
   const retiros: Retiro[] = [{ id: 'r-1', monto: 60_000, fecha: haceDias(3), nota: 'Cajero Galicia' }];
+  // Contó la billetera hace 4 días: con el retiro y la verdulería, debería tener $ 93.000
+  const conteos: Conteo[] = [{ id: 'c-1', monto: 45_000, creado_en: new Date(Date.now() - 4 * 86_400_000).toISOString() }];
 
   return {
     esDemo: true,
@@ -157,7 +160,7 @@ export function crearFuenteDemo(alSalir: () => void): FuenteDatos {
       return gastos.map((g) => ({ ...g }));
     },
     async crearGasto(fila) {
-      gastos.unshift(conMedio(`nuevo-${siguienteId++}`, fila));
+      gastos.unshift({ ...conMedio(fila.id ?? `nuevo-${siguienteId++}`, fila), creado_en: new Date().toISOString() });
       ordenar();
       return 'guardado';
     },
@@ -187,6 +190,12 @@ export function crearFuenteDemo(alSalir: () => void): FuenteDatos {
     retiros: coleccionDemo(retiros, 'retiro'),
     activos: coleccionDemo(crearActivos(), 'activo'),
     sugerencias: coleccionDemo(crearSugerencias(), 'sugerencia'),
+    conteos: {
+      ...coleccionDemo(conteos, 'conteo'),
+      async crear(fila) {
+        conteos.unshift({ id: fila.id ?? `conteo-${siguienteId++}`, monto: fila.monto, creado_en: new Date().toISOString() });
+      },
+    },
     async guardarPushToken() {},
     async salir() {
       alSalir();

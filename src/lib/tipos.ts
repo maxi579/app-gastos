@@ -34,6 +34,8 @@ export type GastoGuardado = {
   primer_mes_cuota: string | null;
   fecha_compra: string;
   tarjeta_id: string | null;
+  /** Cuándo se anotó (lo pone la base; en el modo demo puede no estar) */
+  creado_en?: string;
 };
 export type Tono = 'amable' | 'directo' | 'estricto';
 
@@ -69,7 +71,10 @@ export type PagoFijo = {
 // ---------- Efectivo ----------
 
 /** Plata que sacaste del cajero (o te dieron en mano) */
-export type Retiro = { id: string; monto: number; fecha: string; nota: string | null };
+export type Retiro = { id: string; monto: number; fecha: string; nota: string | null; creado_en?: string };
+
+/** Cuánta plata había en la billetera cuando la persona la contó */
+export type Conteo = { id: string; monto: number; creado_en: string };
 
 // ---------- Activos ----------
 

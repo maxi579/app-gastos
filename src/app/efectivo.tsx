@@ -1,18 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useAviso } from '../components/Toast';
-import { Boton, Campo, confirmar, Encabezado, Texto as Text } from '../components/ui';
+import { Boton, Campo, Chip, confirmar, Encabezado, Texto as Text } from '../components/ui';
 import { estiloCategoria } from '../constants/categorias';
 import { colores, radios, tipografia } from '../constants/tema';
-import { activarRecordatorioEfectivo, avisosDisponibles, desactivarRecordatorioEfectivo, recordatorioEfectivoActivado } from '../lib/avisos';
+import {
+  activarRecordatorioEfectivo,
+  avisosDisponibles,
+  desactivarRecordatorioEfectivo,
+  frecuenciaEfectivo,
+  recordatorioEfectivoActivado,
+  type FrecuenciaEfectivo,
+} from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
-import { balanceEfectivo } from '../lib/efectivo';
+import { balanceEfectivo, compararConteo, saldoEsperado, type ResultadoConteo } from '../lib/efectivo';
 import { formatearFecha, formatearMonto } from '../lib/finanzas';
 import { formatearEntradaMonto, leerMonto } from '../lib/formato';
 import { fechaDesdeTexto } from '../lib/gastos';
-import type { Categoria, GastoGuardado, Retiro } from '../lib/tipos';
+import type { Categoria, Conteo, GastoGuardado, Retiro } from '../lib/tipos';
 
 // Botones rápidos: un toque, el monto y listo
 const RAPIDOS: { nombre: string; categoria: Categoria }[] = [
@@ -24,30 +31,44 @@ const RAPIDOS: { nombre: string; categoria: Categoria }[] = [
   { nombre: 'Otro', categoria: 'Otros' },
 ];
 
-type Carga = { tipo: 'retiro' } | { tipo: 'gasto'; nombre: string; categoria: Categoria };
+type Carga =
+  | { tipo: 'retiro' }
+  | { tipo: 'gasto'; nombre: string; categoria: Categoria }
+  /** Contar la billetera: primero el monto, después qué hacer con la diferencia */
+  | { tipo: 'contar'; resultado: ResultadoConteo | null; actual: number };
 
 export default function Efectivo() {
   const datos = useDatos();
   const aviso = useAviso();
+  // El recordatorio abre esta pantalla con ?contar=si para ir directo a contar
+  const { contar } = useLocalSearchParams<{ contar?: string }>();
   const [retiros, setRetiros] = useState<Retiro[]>([]);
   const [gastos, setGastos] = useState<GastoGuardado[]>([]);
+  const [conteos, setConteos] = useState<Conteo[]>([]);
   const [cargando, setCargando] = useState(false);
   const [carga, setCarga] = useState<Carga | null>(null);
   const [montoTexto, setMontoTexto] = useState('');
   const [nota, setNota] = useState('');
   const [guardando, setGuardando] = useState(false);
   const [recordatorio, setRecordatorio] = useState(false);
+  const [frecuencia, setFrecuencia] = useState<FrecuenciaEfectivo>('semanal');
 
   useEffect(() => {
     recordatorioEfectivoActivado().then(setRecordatorio);
+    frecuenciaEfectivo().then(setFrecuencia);
   }, []);
 
   const cargar = useCallback(async () => {
     setCargando(true);
     try {
-      const [listaRetiros, listaGastos] = await Promise.all([datos.retiros.listar(), datos.gastos()]);
+      const [listaRetiros, listaGastos, listaConteos] = await Promise.all([
+        datos.retiros.listar(),
+        datos.gastos(),
+        datos.conteos.listar().catch(() => []),
+      ]);
       setRetiros(listaRetiros);
       setGastos(listaGastos);
+      setConteos(listaConteos);
     } catch (e) {
       aviso((e as Error).message, 'error');
     }
@@ -57,11 +78,18 @@ export default function Efectivo() {
   useFocusEffect(
     useCallback(() => {
       cargar();
-    }, [cargar])
+      if (contar === 'si') {
+        setMontoTexto('');
+        setCarga({ tipo: 'contar', resultado: null, actual: 0 });
+        router.setParams({ contar: undefined });
+      }
+    }, [cargar, contar])
   );
 
   const balance = balanceEfectivo(retiros, gastos);
-  const gastosEfectivo = gastos.filter((g) => g.tarjeta_id === null && balance.desde && g.fecha_compra >= balance.desde).slice(0, 10);
+  const billetera = saldoEsperado(conteos, retiros, gastos);
+  const desdeGastos = billetera ? formatearFecha(new Date(billetera.ultimo.creado_en)) : balance.desde;
+  const gastosEfectivo = gastos.filter((g) => g.tarjeta_id === null && desdeGastos && g.fecha_compra >= desdeGastos).slice(0, 10);
 
   function abrir(nueva: Carga) {
     setMontoTexto('');
@@ -69,29 +97,61 @@ export default function Efectivo() {
     setCarga(nueva);
   }
 
+  const hoy = () => formatearFecha(new Date());
+
+  function filaGastoEfectivo(descripcion: string, categoria: Categoria, monto: number) {
+    return {
+      descripcion,
+      categoria,
+      monto_total: monto,
+      moneda: 'ARS' as const,
+      cantidad_cuotas: 1,
+      tarjeta_id: null,
+      fecha_compra: hoy(),
+      primer_mes_cuota: `${hoy().slice(0, 7)}-01`,
+    };
+  }
+
   async function guardar() {
-    if (!carga) return;
+    if (!carga || carga.tipo === 'contar') return;
     const monto = leerMonto(montoTexto);
     if (!(monto > 0)) return aviso('Escribí el monto', 'error');
     setGuardando(true);
     try {
-      const hoy = formatearFecha(new Date());
       if (carga.tipo === 'retiro') {
-        await datos.retiros.crear({ monto, fecha: hoy, nota: nota.trim() || null });
-        aviso('Anotado. Te voy recordando qué falta anotar 💵');
+        await datos.retiros.crear({ monto, fecha: hoy(), nota: nota.trim() || null });
+        aviso('Anotado 💵');
       } else {
-        await datos.crearGasto({
-          descripcion: nota.trim() || carga.nombre,
-          categoria: carga.categoria,
-          monto_total: monto,
-          moneda: 'ARS',
-          cantidad_cuotas: 1,
-          tarjeta_id: null,
-          fecha_compra: hoy,
-          primer_mes_cuota: `${hoy.slice(0, 7)}-01`,
-        });
+        await datos.crearGasto(filaGastoEfectivo(nota.trim() || carga.nombre, carga.categoria, monto));
         aviso('Gasto en efectivo anotado 👌');
       }
+      setCarga(null);
+      cargar();
+    } catch (e) {
+      aviso((e as Error).message, 'error');
+    }
+    setGuardando(false);
+  }
+
+  // Paso 1 del conteo: comparamos lo que tiene con lo que debería tener
+  async function compararBilletera() {
+    const actual = leerMonto(montoTexto);
+    if (!montoTexto.trim() || !(actual >= 0)) return aviso('Escribí cuánta plata tenés', 'error');
+    const resultado = compararConteo(billetera?.esperado ?? null, actual);
+    if (resultado.tipo === 'primero' || resultado.tipo === 'justo') {
+      await terminarConteo(actual, resultado.tipo === 'primero' ? 'Listo. La próxima vez que cuentes te digo cuánto gastaste 👌' : '¡Perfecto, tenés todo anotado! 🎉');
+      return;
+    }
+    setCarga({ tipo: 'contar', resultado, actual });
+  }
+
+  // Último paso: guardar el conteo (después de anotar la diferencia, así no se cuenta dos veces)
+  async function terminarConteo(actual: number, mensaje: string, antes?: () => Promise<unknown>) {
+    setGuardando(true);
+    try {
+      if (antes) await antes();
+      await datos.conteos.crear({ monto: actual });
+      aviso(mensaje);
       setCarga(null);
       cargar();
     } catch (e) {
@@ -111,17 +171,20 @@ export default function Efectivo() {
     });
   }
 
-  async function cambiarRecordatorio(activar: boolean) {
+  async function cambiarRecordatorio(activar: boolean, nuevaFrecuencia = frecuencia) {
     if (!activar) {
       await desactivarRecordatorioEfectivo();
       setRecordatorio(false);
       return aviso('Listo, no te lo voy a recordar', 'info');
     }
-    const ok = await activarRecordatorioEfectivo();
+    const ok = await activarRecordatorioEfectivo(nuevaFrecuencia);
     setRecordatorio(ok);
-    if (ok) aviso('Te lo recuerdo los domingos a las 20 h 💵');
+    setFrecuencia(nuevaFrecuencia);
+    if (ok) aviso(nuevaFrecuencia === 'diario' ? 'Te lo recuerdo todos los días a las 21 h 💵' : 'Te lo recuerdo los domingos a las 20 h 💵');
     else aviso('No tengo permiso para avisarte. Activalo en la configuración del celular.', 'error');
   }
+
+  const contando = carga?.tipo === 'contar' ? carga : null;
 
   return (
     <View style={styles.container}>
@@ -132,28 +195,35 @@ export default function Efectivo() {
       >
         <Encabezado titulo="Efectivo" subtitulo="Que no se te escape lo que pagás en mano" volver />
 
-        <View style={styles.balance}>
-          {balance.desde ? (
+        <View style={styles.billetera}>
+          <View style={styles.filaTitulo}>
+            <Ionicons name="wallet" size={22} color={colores.primario} />
+            <Text style={styles.tituloBilletera}>Tu billetera</Text>
+          </View>
+          {billetera ? (
             <>
-              <Text style={styles.balanceEtiqueta}>Sin anotar</Text>
-              <Text style={[styles.balanceMonto, balance.sinAnotar > 0 && { color: colores.advertencia }]}>
-                {formatearMonto(Math.round(balance.sinAnotar))}
+              <Text style={styles.etiqueta}>Según tus cuentas, deberías tener</Text>
+              <Text style={styles.monto}>{formatearMonto(Math.round(Math.max(billetera.esperado, 0)))}</Text>
+              <Text style={styles.detalle}>
+                La última vez que contaste tenías {formatearMonto(Number(billetera.ultimo.monto))} ({fechaCorta(formatearFecha(new Date(billetera.ultimo.creado_en)))}).
               </Text>
-              <Text style={styles.balanceDetalle}>
-                Sacaste {formatearMonto(Math.round(balance.retirado))} y anotaste {formatearMonto(Math.round(balance.anotado))} en efectivo en los últimos
-                30 días.
-              </Text>
-              {balance.sinAnotar > 0 && (
-                <Text style={styles.balancePregunta}>¿Lo tenés en la billetera o te olvidaste de anotar algo? 🤔</Text>
-              )}
             </>
           ) : (
-            <Text style={styles.balanceDetalle}>
-              Cuando saques plata del cajero, anotalo acá. Así te digo cuánto de esa plata todavía no anotaste en qué la gastaste.
+            <Text style={styles.explicacion}>
+              ¿Pagás en efectivo y te olvidás de anotar? Contá cuánta plata tenés en la billetera. La próxima vez que la cuentes, te digo cuánto
+              gastaste aunque no te acuerdes en qué.
             </Text>
           )}
-          <Boton titulo="💵 Saqué plata del cajero" variante="secundario" onPress={() => abrir({ tipo: 'retiro' })} estilo={{ marginTop: 14 }} />
+          <Boton titulo="Contar mi billetera" onPress={() => abrir({ tipo: 'contar', resultado: null, actual: 0 })} estilo={{ marginTop: 14 }} />
+          <Boton titulo="💵 Saqué plata del cajero" variante="secundario" onPress={() => abrir({ tipo: 'retiro' })} estilo={{ marginTop: 10 }} />
         </View>
+
+        {!billetera && balance.sinAnotar > 0 && (
+          <Text style={styles.aviso}>
+            Sacaste {formatearMonto(Math.round(balance.retirado))} y anotaste {formatearMonto(Math.round(balance.anotado))}: hay{' '}
+            {formatearMonto(Math.round(balance.sinAnotar))} que no sé en qué se fueron. Contá la billetera y lo resolvemos.
+          </Text>
+        )}
 
         <Text style={[tipografia.seccion, styles.seccion]}>Anotar un gasto en efectivo</Text>
         <View style={styles.rapidos}>
@@ -174,20 +244,26 @@ export default function Efectivo() {
 
         {avisosDisponibles && (
           <View style={styles.tarjeta}>
-            <Ionicons name="alarm-outline" size={22} color={colores.primario} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.nombre}>Recordarme los domingos</Text>
-              <Text style={styles.detalle}>
-                {datos.esDemo ? 'No disponible en el modo de prueba.' : 'A las 20 h, para anotar lo que pagaste en efectivo en la semana.'}
-              </Text>
+            <View style={styles.filaInterruptor}>
+              <Ionicons name="alarm-outline" size={22} color={colores.primario} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.nombre}>Recordarme contar la billetera</Text>
+                <Text style={styles.detalle}>{datos.esDemo ? 'No disponible en el modo de prueba.' : 'Te aviso para que la cuentes en 10 segundos.'}</Text>
+              </View>
+              <Switch
+                value={recordatorio}
+                onValueChange={(activar) => cambiarRecordatorio(activar)}
+                disabled={datos.esDemo}
+                trackColor={{ true: colores.primario, false: colores.borde }}
+                thumbColor={colores.texto}
+              />
             </View>
-            <Switch
-              value={recordatorio}
-              onValueChange={cambiarRecordatorio}
-              disabled={datos.esDemo}
-              trackColor={{ true: colores.primario, false: colores.borde }}
-              thumbColor={colores.texto}
-            />
+            {recordatorio && (
+              <View style={styles.chips}>
+                <Chip etiqueta="Todos los días (21 h)" activo={frecuencia === 'diario'} onPress={() => cambiarRecordatorio(true, 'diario')} />
+                <Chip etiqueta="Los domingos (20 h)" activo={frecuencia === 'semanal'} onPress={() => cambiarRecordatorio(true, 'semanal')} />
+              </View>
+            )}
           </View>
         )}
 
@@ -195,7 +271,7 @@ export default function Efectivo() {
           <>
             <Text style={[tipografia.seccion, styles.seccion]}>Retiros</Text>
             {retiros.slice(0, 10).map((r) => (
-              <View key={r.id} style={styles.tarjeta}>
+              <View key={r.id} style={[styles.tarjeta, styles.filaInterruptor]}>
                 <Ionicons name="cash-outline" size={22} color={colores.primario} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.nombre}>{formatearMonto(r.monto)}</Text>
@@ -230,25 +306,106 @@ export default function Efectivo() {
       <Modal visible={carga !== null} animationType="fade" transparent onRequestClose={() => setCarga(null)}>
         <View style={styles.fondoModal}>
           <View style={styles.cajaModal}>
-            <Text style={styles.tituloModal}>{carga?.tipo === 'retiro' ? '¿Cuánto sacaste?' : `¿Cuánto gastaste${carga?.nombre !== 'Otro' ? ` en ${carga?.nombre.toLowerCase()}` : ''}?`}</Text>
-            <Campo
-              etiqueta="Monto"
-              value={montoTexto}
-              onChangeText={(t) => setMontoTexto(formatearEntradaMonto(t))}
-              keyboardType="decimal-pad"
-              placeholder="0"
-              autoFocus
-            />
-            <Campo
-              etiqueta={carga?.tipo === 'retiro' ? 'Nota (opcional)' : '¿Qué fue?'}
-              value={nota}
-              onChangeText={setNota}
-              placeholder={carga?.tipo === 'retiro' ? 'Ej: cajero Galicia' : 'Ej: verdulería'}
-            />
-            <View style={styles.filaBotones}>
-              <Boton titulo="Cancelar" variante="secundario" onPress={() => setCarga(null)} estilo={{ flex: 1 }} />
-              <Boton titulo="Guardar" onPress={guardar} cargando={guardando} estilo={{ flex: 1 }} />
-            </View>
+            {contando && !contando.resultado && (
+              <>
+                <Text style={styles.tituloModal}>¿Cuánta plata tenés ahora en la billetera?</Text>
+                <Text style={styles.ayudaModal}>Contá los billetes y escribí el total.</Text>
+                <Campo
+                  etiqueta="Total en la billetera"
+                  value={montoTexto}
+                  onChangeText={(t) => setMontoTexto(formatearEntradaMonto(t))}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  autoFocus
+                />
+                <View style={styles.filaBotones}>
+                  <Boton titulo="Cancelar" variante="secundario" onPress={() => setCarga(null)} estilo={{ flex: 1 }} />
+                  <Boton titulo="Listo" onPress={compararBilletera} cargando={guardando} estilo={{ flex: 1 }} />
+                </View>
+              </>
+            )}
+
+            {contando?.resultado?.tipo === 'falta' && (
+              <>
+                <Text style={styles.tituloModal}>Gastaste {formatearMonto(contando.resultado.diferencia)} en efectivo que no anotaste</Text>
+                <Text style={styles.ayudaModal}>¿En qué fue, más o menos? Si no te acordás, no pasa nada.</Text>
+                <View style={styles.opciones}>
+                  {RAPIDOS.filter((r) => r.nombre !== 'Otro').map((r) => (
+                    <Chip
+                      key={r.nombre}
+                      etiqueta={r.nombre}
+                      activo={false}
+                      onPress={() => {
+                        const r2 = contando.resultado as { diferencia: number };
+                        terminarConteo(contando.actual, `Anotado: ${r.nombre} 👌`, () =>
+                          datos.crearGasto(filaGastoEfectivo(r.nombre, r.categoria, r2.diferencia))
+                        );
+                      }}
+                    />
+                  ))}
+                </View>
+                <Boton
+                  titulo="No me acuerdo, anotalo igual"
+                  variante="secundario"
+                  cargando={guardando}
+                  onPress={() => {
+                    const r2 = contando.resultado as { diferencia: number };
+                    terminarConteo(contando.actual, 'Anotado como gastos varios 👌', () =>
+                      datos.crearGasto(filaGastoEfectivo('Gastos varios en efectivo', 'Otros', r2.diferencia))
+                    );
+                  }}
+                  estilo={{ marginTop: 16 }}
+                />
+              </>
+            )}
+
+            {contando?.resultado?.tipo === 'sobra' && (
+              <>
+                <Text style={styles.tituloModal}>Tenés {formatearMonto(contando.resultado.diferencia)} más de lo que esperaba</Text>
+                <Text style={styles.ayudaModal}>¿Sacaste plata del cajero o te dieron plata que no anotaste?</Text>
+                <Boton
+                  titulo="Sí, anotalo como plata que entró"
+                  cargando={guardando}
+                  onPress={() => {
+                    const r2 = contando.resultado as { diferencia: number };
+                    terminarConteo(contando.actual, 'Anotado 💵', () => datos.retiros.crear({ monto: r2.diferencia, fecha: hoy(), nota: 'Plata que entró' }));
+                  }}
+                  estilo={{ marginTop: 16 }}
+                />
+                <Boton
+                  titulo="No, me había equivocado antes"
+                  variante="secundario"
+                  onPress={() => terminarConteo(contando.actual, 'Listo, actualicé tu billetera 👌')}
+                  estilo={{ marginTop: 10 }}
+                />
+              </>
+            )}
+
+            {carga && carga.tipo !== 'contar' && (
+              <>
+                <Text style={styles.tituloModal}>
+                  {carga.tipo === 'retiro' ? '¿Cuánto sacaste?' : `¿Cuánto gastaste${carga.nombre !== 'Otro' ? ` en ${carga.nombre.toLowerCase()}` : ''}?`}
+                </Text>
+                <Campo
+                  etiqueta="Monto"
+                  value={montoTexto}
+                  onChangeText={(t) => setMontoTexto(formatearEntradaMonto(t))}
+                  keyboardType="decimal-pad"
+                  placeholder="0"
+                  autoFocus
+                />
+                <Campo
+                  etiqueta={carga.tipo === 'retiro' ? 'Nota (opcional)' : '¿Qué fue?'}
+                  value={nota}
+                  onChangeText={setNota}
+                  placeholder={carga.tipo === 'retiro' ? 'Ej: cajero Galicia' : 'Ej: verdulería'}
+                />
+                <View style={styles.filaBotones}>
+                  <Boton titulo="Cancelar" variante="secundario" onPress={() => setCarga(null)} estilo={{ flex: 1 }} />
+                  <Boton titulo="Guardar" onPress={guardar} cargando={guardando} estilo={{ flex: 1 }} />
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -266,11 +423,14 @@ function fechaCorta(fecha: string) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 20, paddingTop: 0, paddingBottom: 40 },
-  balance: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 18, borderWidth: 1, borderColor: colores.borde },
-  balanceEtiqueta: { color: colores.textoSecundario, fontSize: 15, fontWeight: '600' },
-  balanceMonto: { color: colores.texto, fontSize: 36, fontWeight: '800', marginTop: 4, letterSpacing: -1 },
-  balanceDetalle: { color: colores.textoChip, fontSize: 15, lineHeight: 21, marginTop: 6 },
-  balancePregunta: { color: colores.advertencia, fontSize: 14, marginTop: 8 },
+  billetera: { backgroundColor: colores.superficie, borderRadius: radios.enorme, padding: 18, borderWidth: 1, borderColor: colores.borde },
+  filaTitulo: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  tituloBilletera: { color: colores.texto, fontSize: 18, fontWeight: '700' },
+  etiqueta: { color: colores.textoSecundario, fontSize: 14 },
+  monto: { color: colores.texto, fontSize: 34, fontWeight: '800', letterSpacing: -1, marginTop: 2 },
+  detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  explicacion: { color: colores.textoChip, fontSize: 15, lineHeight: 22 },
+  aviso: { color: colores.advertencia, fontSize: 14, lineHeight: 20, marginTop: 12 },
   seccion: { marginTop: 28, marginBottom: 12 },
   rapidos: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   rapido: {
@@ -286,9 +446,6 @@ const styles = StyleSheet.create({
   },
   textoRapido: { color: colores.textoChip, fontSize: 13, fontWeight: '600', textAlign: 'center' },
   tarjeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
     backgroundColor: colores.superficie,
     borderRadius: radios.grande,
     padding: 14,
@@ -296,11 +453,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colores.borde,
   },
+  filaInterruptor: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   nombre: { color: colores.texto, fontSize: 15, fontWeight: '600' },
-  detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
   filaGasto: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, gap: 8 },
   fondoModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
   cajaModal: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 20, borderWidth: 1, borderColor: colores.borde },
-  tituloModal: { color: colores.texto, fontSize: 20, fontWeight: '700' },
+  tituloModal: { color: colores.texto, fontSize: 20, fontWeight: '700', lineHeight: 26 },
+  ayudaModal: { color: colores.textoSecundario, fontSize: 14, marginTop: 6, lineHeight: 20 },
+  opciones: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 16 },
   filaBotones: { flexDirection: 'row', gap: 10, marginTop: 18 },
 });

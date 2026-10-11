@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { nuevoId } from './ids';
 import { supabase } from './supabase';
-import type { Activo, Fijo, GastoGuardado, MedioPago, PagoFijo, Retiro, Sugerencia, Tono } from './tipos';
+import type { Activo, Conteo, Fijo, GastoGuardado, MedioPago, PagoFijo, Retiro, Sugerencia, Tono } from './tipos';
 
 // Todo el acceso a datos pasa por acá. Las pantallas no saben si los datos
 // vienen de Supabase o del modo demo: solo usan una FuenteDatos.
@@ -22,6 +22,8 @@ export type FilaPagoFijo = SinId<PagoFijo>;
 export type FilaRetiro = SinId<Retiro>;
 export type FilaActivo = SinId<Activo>;
 export type FilaSugerencia = SinId<Sugerencia>;
+/** El momento del conteo lo pone la base */
+export type FilaConteo = { id?: string; monto: number };
 
 /** Listar, crear, cambiar y borrar: lo mismo para fijos, retiros, activos... */
 export interface Coleccion<T, F> {
@@ -53,6 +55,7 @@ export interface FuenteDatos {
   retiros: Coleccion<Retiro, FilaRetiro>;
   activos: Coleccion<Activo, FilaActivo>;
   sugerencias: Coleccion<Sugerencia, FilaSugerencia>;
+  conteos: Coleccion<Conteo, FilaConteo>;
   /** Para mandarle al celular el aviso de un pago que llegó por mail */
   guardarPushToken(token: string): Promise<void>;
   salir(): Promise<void>;
@@ -167,6 +170,7 @@ const fuenteRemota: FuenteDatos = {
     aNumeros(['monto_inicial', 'cantidad', 'tna', 'plazo_dias', 'valor_actual', 'depreciacion_anual'])
   ),
   sugerencias: coleccionRemota<Sugerencia, FilaSugerencia>('sugerencias', aNumeros(['monto'])),
+  conteos: coleccionRemota<Conteo, FilaConteo>('conteos_efectivo', aNumeros(['monto'])),
 
   async guardarPushToken(token) {
     const { data } = await supabase.auth.getUser();
@@ -190,6 +194,7 @@ const CLAVES = {
   retiros: 'cache-retiros',
   activos: 'cache-activos',
   sugerencias: 'cache-sugerencias',
+  conteos: 'cache-conteos',
   // La conversación con el asistente con IA (la guarda la pantalla de chat)
   chat: 'chat-ia',
 };
@@ -353,6 +358,7 @@ function crearFuenteSupabase(base: FuenteDatos): FuenteDatos {
     retiros: conCache(CLAVES.retiros, base.retiros),
     activos: conCache(CLAVES.activos, base.activos),
     sugerencias: conCache(CLAVES.sugerencias, base.sugerencias),
+    conteos: conCache(CLAVES.conteos, base.conteos),
     guardarPushToken: (token) => escribir(() => base.guardarPushToken(token)),
 
     // Al salir se borra todo lo guardado en el celular: si lo usa otra persona, no ve tus datos

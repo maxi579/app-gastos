@@ -9,7 +9,7 @@ import type { Fijo, MedioPago, PagoFijo } from './tipos';
 // - Cierre: un día antes del cierre de cada tarjeta, a las 10.
 // - Vencimiento: un día antes de que venza cada gasto fijo que no se debita solo (mismo interruptor que el cierre).
 // - Recordatorio: a la noche, solo los días en que no anotaste ningún gasto.
-// - Efectivo: los domingos a la noche, para anotar lo que pagaste en efectivo en la semana.
+// - Billetera: todos los días o los domingos, para contar la plata y descubrir lo que se gastó sin anotar.
 
 const CLAVES = { cierres: 'avisos-cierre-activados', recordatorio: 'recordatorio-activado', efectivo: 'recordatorio-efectivo' };
 const MESES_DE_VENCIMIENTOS = 2;
@@ -129,23 +129,37 @@ export async function programarAvisosVencimiento(fijos: Fijo[], pagos: PagoFijo[
   }
 }
 
-// ---------- Efectivo de la semana ----------
+// ---------- Contar la billetera ----------
+
+export type FrecuenciaEfectivo = 'diario' | 'semanal';
+const CLAVE_FRECUENCIA = 'recordatorio-efectivo-frecuencia';
 
 export const recordatorioEfectivoActivado = () => estaActivado(CLAVES.efectivo);
 
-export async function activarRecordatorioEfectivo() {
+export async function frecuenciaEfectivo(): Promise<FrecuenciaEfectivo> {
+  return (await AsyncStorage.getItem(CLAVE_FRECUENCIA)) === 'diario' ? 'diario' : 'semanal';
+}
+
+// Todos los días a las 21 h, o los domingos a las 20 h
+export async function activarRecordatorioEfectivo(frecuencia: FrecuenciaEfectivo) {
   if (!avisosDisponibles || !(await pedirPermiso())) return false;
-  await AsyncStorage.setItem(CLAVES.efectivo, 'si');
+  await AsyncStorage.multiSet([
+    [CLAVES.efectivo, 'si'],
+    [CLAVE_FRECUENCIA, frecuencia],
+  ]);
   await cancelarTipo('efectivo-');
   await Notifications.scheduleNotificationAsync({
-    identifier: 'efectivo-semanal',
+    identifier: `efectivo-${frecuencia}`,
     content: {
-      title: '¿Pagaste algo en efectivo esta semana? 💵',
-      body: 'El kiosco, la verdulería, el colectivo... Anotalo ahora así no se pierde.',
-      data: { url: '/efectivo' },
+      title: '¿Cuánta plata tenés en la billetera? 💵',
+      body: 'Contala en 10 segundos y te digo cuánto gastaste en efectivo, aunque no te acuerdes en qué.',
+      data: { url: '/efectivo?contar=si' },
     },
-    // 1 = domingo
-    trigger: { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 20, minute: 0, channelId: CANAL },
+    trigger:
+      frecuencia === 'diario'
+        ? { type: Notifications.SchedulableTriggerInputTypes.DAILY, hour: 21, minute: 0, channelId: CANAL }
+        : // 1 = domingo
+          { type: Notifications.SchedulableTriggerInputTypes.WEEKLY, weekday: 1, hour: 20, minute: 0, channelId: CANAL },
   });
   return true;
 }
