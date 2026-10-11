@@ -9,17 +9,19 @@ import { Objetivo } from '../components/Tutorial';
 import { Boton, Encabezado, Entrada as TextInput, Tarjeta, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
 import { programarRecordatorios } from '../lib/avisos';
+import { categoriaAprendida } from '../lib/aprendizaje';
 import { elegirFoto, leerComprobante, type Comprobante } from '../lib/comprobante';
 import { useDatos } from '../lib/contextoDatos';
 import { fechaParaMostrar, montoATexto } from '../lib/formato';
 import { fechaDesdeTexto, prepararGasto, type ValoresGasto } from '../lib/gastos';
 import { interpretarGasto } from '../lib/interpretarGasto';
-import type { MedioPago } from '../lib/tipos';
+import type { GastoGuardado, MedioPago } from '../lib/tipos';
 
 const EJEMPLOS = ['pizza 18 lucas con mp', 'zapas 120k en 6 cuotas con visa', 'super 45.300 con master', 'uber 7500 efectivo'];
 
 // Valores del formulario a partir de lo que escribió (o dictó) la persona
-function valoresDesdeTexto(entrada: string, medios: MedioPago[]): ValoresGasto {
+// historial: si ya anotó algo parecido, usa la categoría que eligió esa vez
+function valoresDesdeTexto(entrada: string, medios: MedioPago[], historial: GastoGuardado[] = []): ValoresGasto {
   const resultado = interpretarGasto(entrada, medios);
   return {
     descripcion: resultado.descripcion,
@@ -27,7 +29,7 @@ function valoresDesdeTexto(entrada: string, medios: MedioPago[]): ValoresGasto {
     cuotasTexto: String(resultado.cuotas),
     moneda: resultado.moneda,
     medioId: resultado.medioId,
-    categoria: resultado.categoria,
+    categoria: categoriaAprendida(resultado.descripcion, historial) ?? resultado.categoria,
   };
 }
 
@@ -38,6 +40,7 @@ export default function Cargar() {
   const parametros = useLocalSearchParams<{ texto?: string; guardar?: string }>();
   const [texto, setTexto] = useState('');
   const [medios, setMedios] = useState<MedioPago[] | null>(null);
+  const [historial, setHistorial] = useState<GastoGuardado[]>([]);
   const [valores, setValores] = useState<ValoresGasto | null>(null);
   const [guardando, setGuardando] = useState(false);
   const ultimoTextoExterno = useRef<string | null>(null);
@@ -47,6 +50,7 @@ export default function Cargar() {
 
   useFocusEffect(
     useCallback(() => {
+      datos.gastos().then(setHistorial).catch(() => {});
       datos.medios().then(setMedios).catch((e) => {
         setMedios([]);
         aviso(e.message, 'error');
@@ -59,7 +63,7 @@ export default function Cargar() {
     const externo = parametros.texto?.trim();
     if (!externo || !medios || ultimoTextoExterno.current === externo) return;
     ultimoTextoExterno.current = externo;
-    const nuevos = valoresDesdeTexto(externo, medios);
+    const nuevos = valoresDesdeTexto(externo, medios, historial);
     setTexto(externo);
     setEscaneado(null);
     setValores(nuevos);
@@ -71,7 +75,7 @@ export default function Cargar() {
   function interpretar(entrada = texto) {
     if (!entrada.trim()) return aviso('Escribí tu gasto primero 🙂', 'info');
     setEscaneado(null);
-    setValores(valoresDesdeTexto(entrada, medios ?? []));
+    setValores(valoresDesdeTexto(entrada, medios ?? [], historial));
   }
 
   async function escanear(origen: 'camara' | 'galeria') {
@@ -90,7 +94,7 @@ export default function Cargar() {
         cuotasTexto: String(comprobante.cuotas),
         moneda: comprobante.moneda,
         medioId: adivinado.medioId,
-        categoria: comprobante.categoria,
+        categoria: categoriaAprendida(comprobante.descripcion, historial) ?? comprobante.categoria,
       });
     } catch (e) {
       aviso((e as Error).message, 'error');

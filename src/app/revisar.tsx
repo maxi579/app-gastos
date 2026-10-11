@@ -10,9 +10,10 @@ import { useDatos } from '../lib/contextoDatos';
 import { formatearMonto } from '../lib/finanzas';
 import { fechaParaMostrar, montoATexto } from '../lib/formato';
 import { fechaDesdeTexto, prepararGasto, type ValoresGasto } from '../lib/gastos';
+import { categoriaAprendida } from '../lib/aprendizaje';
 import { interpretarGasto } from '../lib/interpretarGasto';
 import { importarNotificaciones } from '../lib/notificaciones';
-import type { MedioPago, Sugerencia } from '../lib/tipos';
+import type { GastoGuardado, MedioPago, Sugerencia } from '../lib/tipos';
 
 type Anotando = { sugerencia: Sugerencia; valores: ValoresGasto };
 
@@ -28,6 +29,7 @@ export default function Revisar() {
   const aviso = useAviso();
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
   const [medios, setMedios] = useState<MedioPago[]>([]);
+  const [historial, setHistorial] = useState<GastoGuardado[]>([]);
   const [cargando, setCargando] = useState(false);
   const [anotando, setAnotando] = useState<Anotando | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -37,9 +39,10 @@ export default function Revisar() {
     try {
       // En Android, primero traemos lo que juntó el lector de notificaciones
       await importarNotificaciones(datos).catch(() => 0);
-      const [lista, listaMedios] = await Promise.all([datos.sugerencias.listar(), datos.medios()]);
+      const [lista, listaMedios, listaGastos] = await Promise.all([datos.sugerencias.listar(), datos.medios(), datos.gastos()]);
       setSugerencias(lista.filter((s) => s.estado === 'pendiente'));
       setMedios(listaMedios);
+      setHistorial(listaGastos);
     } catch (e) {
       aviso((e as Error).message, 'error');
     }
@@ -63,7 +66,7 @@ export default function Revisar() {
         cuotasTexto: '1',
         moneda: sugerencia.moneda,
         medioId: medioDeLaFuente(sugerencia.fuente, medios) ?? interpretado.medioId,
-        categoria: interpretado.categoria,
+        categoria: categoriaAprendida(sugerencia.descripcion, historial) ?? interpretado.categoria,
       },
     });
   }

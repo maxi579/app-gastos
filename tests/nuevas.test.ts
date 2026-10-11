@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { inflacionAcumulada, valuarActivo } from '../src/lib/activos';
+import { categoriaAprendida } from '../src/lib/aprendizaje';
+import { gastoUltimaSemana, presupuestoAutomatico, semanaInusual } from '../src/lib/patrones';
 import { balanceEfectivo, compararConteo, saldoEsperado } from '../src/lib/efectivo';
 import { anotarDebitos, debitosParaAnotar, detectarRecurrentes, fijosDelMes, gastoDeFijo, pendienteDeFijos, totalMensualFijos, vencimientoDelMes } from '../src/lib/fijos';
 import { leerFecha } from '../src/lib/formato';
@@ -274,6 +276,13 @@ describe('notificaciones de billeteras', () => {
     assert.equal(interpretarNotificacion(notif('Promo', 'Hasta $ 5.000 de descuento en el súper')), null);
   });
 
+  it('detecta el cobro del sueldo (y no lo confunde con otra plata que entra)', () => {
+    const sueldo = interpretarNotificacion(notif('Acreditación de haberes', 'Te depositamos tu sueldo de $ 1.250.000', 'com.otro.banco'));
+    assert.equal(sueldo?.tipo, 'sueldo');
+    assert.equal(sueldo?.monto, 1_250_000);
+    assert.equal(interpretarNotificacion(notif('Recibiste dinero', 'Juan te transfirió $ 20.000')), null);
+  });
+
   it('una extracción del cajero es un retiro de efectivo', () => {
     assert.equal(interpretarNotificacion(notif('Extracción', 'Extrajiste $ 50.000 en un cajero', 'com.otro'))?.tipo, 'retiro');
   });
@@ -354,5 +363,55 @@ describe('¿cuánto me rinde?', () => {
     ]);
     assert.deepEqual(bancos, [{ entidad: 'A', tna30: 0.2, porPlazo: [{ dias: 60, tna: 0.21 }] }]);
     assert.deepEqual(leerBancos(null), []);
+  });
+});
+
+describe('la app aprende sola', () => {
+  it('repite la categoría que la persona usó antes para lo mismo o algo parecido', () => {
+    const gastos = [
+      gasto('Farmacity', '2026-10-05', 1, { categoria: 'Salud' }),
+      gasto('Super Coto', '2026-10-04', 1, { categoria: 'Supermercado' }),
+      gasto('Farmacity', '2026-09-01', 1, { categoria: 'Compras' }),
+    ];
+    assert.equal(categoriaAprendida('farmacity', gastos), 'Salud'); // la más reciente manda
+    assert.equal(categoriaAprendida('Coto Palermo', gastos), 'Supermercado'); // comparten "coto"
+    assert.equal(categoriaAprendida('Cine', gastos), null);
+    assert.equal(categoriaAprendida('pago con mp', gastos), null); // palabras vacías no cuentan
+  });
+
+  it('arma un presupuesto con lo que se suele gastar y avisa si va más rápido', () => {
+    const g = (cat: string, fecha: string, monto: number) => gasto('x', fecha, monto, { categoria: cat });
+    const gastos = [
+      g('Comida y salidas', '2026-07-10', 90_000),
+      g('Comida y salidas', '2026-08-10', 100_000),
+      g('Comida y salidas', '2026-09-10', 110_000),
+      g('Supermercado', '2026-09-10', 200_000),
+      g('Comida y salidas', '2026-10-05', 80_000), // a 10 de octubre ya gastó 80% de lo normal
+      g('Supermercado', '2026-10-05', 20_000),
+      gasto('Heladera', '2026-08-10', 900_000, { categoria: 'Compras', cantidad_cuotas: 12 }), // en cuotas: no cuenta
+    ];
+    const p = presupuestoAutomatico(gastos, hoy);
+    const comida = p.find((x) => x.categoria === 'Comida y salidas')!;
+    assert.equal(comida.habitual, 100_000);
+    assert.equal(comida.alerta, true);
+    const super_ = p.find((x) => x.categoria === 'Supermercado')!;
+    assert.ok(Math.abs(super_.habitual - 200_000 / 3) < 1e-6); // en julio y agosto no gastó: cuenta como 0
+    assert.equal(super_.alerta, false);
+    assert.equal(p.find((x) => x.categoria === 'Compras'), undefined);
+  });
+
+  it('sin al menos 2 meses de historial no inventa un presupuesto', () => {
+    assert.deepEqual(presupuestoAutomatico([gasto('x', '2026-09-10', 1000)], hoy), []);
+  });
+
+  it('detecta una semana fuera de lo común', () => {
+    const g = (fecha: string, monto: number) => gasto('x', fecha, monto, { categoria: 'Comida y salidas' });
+    const normales = ['2026-09-30', '2026-09-23', '2026-09-16', '2026-09-09', '2026-09-02', '2026-08-26', '2026-08-19', '2026-08-12'].map((f) => g(f, 10_000));
+    assert.equal(semanaInusual([...normales, g('2026-10-08', 12_000)], hoy), null);
+    assert.deepEqual(semanaInusual([...normales, g('2026-10-08', 35_000)], hoy), { categoria: 'Comida y salidas', estaSemana: 35_000, normal: 10_000 });
+  });
+
+  it('suma lo de los últimos 7 días', () => {
+    assert.equal(gastoUltimaSemana([gasto('a', '2026-10-10', 5_000), gasto('b', '2026-10-04', 3_000), gasto('c', '2026-10-03', 9_000)], hoy), 8_000);
   });
 });

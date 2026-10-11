@@ -48,6 +48,13 @@ export async function importarNotificaciones(datos: FuenteDatos) {
   for (const notificacion of leidas) {
     const pago = interpretarNotificacion(notificacion);
     if (!pago || yaCargadas.has(`${pago.fecha}|${pago.original}`)) continue;
+    if (pago.tipo === 'sueldo') {
+      // El sueldo nuevo reemplaza al anterior (si cambió más de un 1%)
+      const { sueldo } = await datos.perfil();
+      if (!sueldo || Math.abs(pago.monto - sueldo) / sueldo > 0.01) await datos.guardarSueldo(pago.monto);
+      encontrados++;
+      continue;
+    }
     if (pago.tipo === 'retiro') {
       if (retirosCargados.has(`${pago.fecha}|${pago.monto}`)) continue;
       await datos.retiros.crear({ monto: pago.monto, fecha: pago.fecha, nota: pago.fuente ? `Detectado en ${pago.fuente}` : 'Detectado' });

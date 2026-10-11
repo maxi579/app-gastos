@@ -147,8 +147,16 @@ export default function Fijos() {
     if (!(monto > 0)) return aviso('Escribí cuánto pagaste', 'error');
     setGuardandoPago(true);
     try {
-      await pagarFijo(datos, pagando.item.fijo, monto, new Date(), medios);
-      aviso(`${pagando.item.fijo.descripcion} pagado ✓`);
+      const { fijo } = pagando.item;
+      await pagarFijo(datos, fijo, monto, new Date(), medios);
+      // Si cambió el precio (Netflix aumentó), lo actualizamos solo para los meses que vienen
+      if (fijo.monto !== null && Math.abs(monto - fijo.monto) / fijo.monto > 0.02) {
+        await datos.fijos.actualizar(fijo.id, { monto });
+        const subio = monto > fijo.monto;
+        aviso(`${fijo.descripcion} ${subio ? 'aumentó' : 'bajó'} a ${formatearMonto(monto, fijo.moneda)}. Lo actualicé ✓`, subio ? 'info' : 'exito');
+      } else {
+        aviso(`${fijo.descripcion} pagado ✓`);
+      }
       setPagando(null);
       cargar();
     } catch (e) {

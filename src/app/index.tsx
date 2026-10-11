@@ -11,11 +11,19 @@ import { Boton, confirmar, Encabezado, Texto as Text } from '../components/ui';
 import { estiloCategoria } from '../constants/categorias';
 import { colores, colorSegunPorcentaje, degradados, radios, tipografia } from '../constants/tema';
 import { consejos, emojiDe, TONOS } from '../lib/asistente';
-import { avisosDisponibles, programarAvisosCierre, programarAvisosVencimiento, programarRecordatorios, recordatorioActivado } from '../lib/avisos';
+import {
+  avisosDisponibles,
+  programarAvisosCierre,
+  programarAvisosVencimiento,
+  programarRecordatorios,
+  programarResumenSemanal,
+  recordatorioActivado,
+} from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
 import type { GastoConMedio, Perfil } from '../lib/datos';
 import { balanceEfectivo } from '../lib/efectivo';
 import { anotarDebitos, fijosDelMes, pendienteDeFijos, totalMensualFijos } from '../lib/fijos';
+import { gastoUltimaSemana, presupuestoAutomatico, semanaInusual } from '../lib/patrones';
 import {
   diaDeLibertad,
   formatearDia,
@@ -94,6 +102,9 @@ export default function Inicio() {
       if (!datos.esDemo) {
         programarAvisosCierre(listaMedios).catch(() => {});
         programarAvisosVencimiento(listaFijos, pagosActuales).catch(() => {});
+        // Lo que queda del mes: sueldo menos cuotas y gastos del mes, sin contar los fijos pendientes (aproximado)
+        const delMesTotal = totalEnPesos(proyectarCuotas(todos, new Date(), 1)[0] ?? { ars: 0, usd: 0 }, null);
+        programarResumenSemanal(gastoUltimaSemana(todos), nuevoPerfil.sueldo ? nuevoPerfil.sueldo - delMesTotal : null).catch(() => {});
         registrarPush(datos);
         const hoyTexto = formatearFecha(new Date());
         programarRecordatorios(todos.some((g) => g.fecha_compra === hoyTexto)).catch(() => {});
@@ -178,8 +189,23 @@ export default function Inicio() {
   const fijosPorVencer = delMes
     .filter((f) => !f.pago && !f.fijo.debito_automatico && f.dias <= 3)
     .map((f) => ({ descripcion: f.fijo.descripcion, dias: f.dias }));
+  // Presupuesto que nadie tuvo que armar: lo que se suele gastar por categoría
+  const presupuesto = presupuestoAutomatico(gastos, hoy);
+  const habitualDe = new Map(presupuesto.map((p) => [p.categoria as string, p]));
+  const pasado = presupuesto.filter((p) => p.alerta).sort((a, b) => b.porcentaje - a.porcentaje)[0];
+  const inusual = semanaInusual(gastos, hoy);
   const tips = cargado
-    ? consejos({ tono, hoy, porcentaje, medios, gastos, fijosPorVencer, efectivoSinAnotar: efectivo.sinAnotar })
+    ? consejos({
+        tono,
+        hoy,
+        porcentaje,
+        medios,
+        gastos,
+        fijosPorVencer,
+        efectivoSinAnotar: efectivo.sinAnotar,
+        presupuestoPasado: pasado ? { categoria: pasado.categoria, porcentaje: pasado.porcentaje } : undefined,
+        semanaInusual: inusual ? { categoria: inusual.categoria, veces: inusual.estaSemana / inusual.normal } : undefined,
+      })
     : [];
   // Fijos y el asistente ya están en la barra de abajo: acá van los accesos que más se usan del resto
   const herramientas: { icono: keyof typeof Ionicons.glyphMap; titulo: string; detalle: string; destino: Href }[] = [
@@ -376,6 +402,10 @@ export default function Inicio() {
                 <View style={styles.tarjetaCategorias}>
                   {categorias.slice(0, 5).map(({ categoria, total }) => {
                     const { icono, color } = estiloCategoria(categoria);
+                    // Con historial, la barra se llena contra lo que se suele gastar en el mes (presupuesto automático)
+                    const habitual = habitualDe.get(categoria);
+                    const llenado = habitual ? Math.min(total / habitual.habitual, 1) : total / maximoCategoria;
+                    const colorBarra = habitual?.alerta ? colores.peligro : color;
                     return (
                       <View key={categoria} style={styles.filaCategoria}>
                         <View style={[styles.iconoChico, { backgroundColor: `${color}22` }]}>
@@ -384,15 +414,21 @@ export default function Inicio() {
                         <View style={{ flex: 1 }}>
                           <View style={styles.filaCategoriaTexto}>
                             <Text style={styles.nombreCategoria}>{categoria}</Text>
-                            <Text style={styles.montoCategoria}>{formatearMonto(Math.round(total))}</Text>
+                            <Text style={styles.montoCategoria}>
+                              {formatearMonto(Math.round(total))}
+                              {habitual ? <Text style={styles.habitual}> de ~{formatearMonto(Math.round(habitual.habitual / 1000) * 1000)}</Text> : null}
+                            </Text>
                           </View>
                           <View style={styles.barraCategoriaFondo}>
-                            <View style={[styles.barraCategoria, { width: `${(total / maximoCategoria) * 100}%`, backgroundColor: color }]} />
+                            <View style={[styles.barraCategoria, { width: `${llenado * 100}%`, backgroundColor: colorBarra }]} />
                           </View>
                         </View>
                       </View>
                     );
                   })}
+                  {presupuesto.length > 0 && (
+                    <Text style={styles.notaPresupuesto}>“de ~$…” es lo que solés gastar en un mes. Lo calculo solo con tus últimos meses.</Text>
+                  )}
                 </View>
               </Animated.View>
             )}
@@ -623,6 +659,8 @@ const styles = StyleSheet.create({
   filaCategoriaTexto: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   nombreCategoria: { color: colores.texto, fontSize: 15, fontWeight: '600' },
   montoCategoria: { color: colores.textoSecundario, fontSize: 15 },
+  habitual: { color: colores.textoTenue, fontSize: 13 },
+  notaPresupuesto: { color: colores.textoTenue, fontSize: 12, lineHeight: 17 },
   barraCategoriaFondo: { height: 6, backgroundColor: colores.fondo, borderRadius: 3, overflow: 'hidden' },
   barraCategoria: { height: '100%', borderRadius: 3 },
   dia: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, marginBottom: 8 },

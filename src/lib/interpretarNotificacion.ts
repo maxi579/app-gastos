@@ -7,7 +7,9 @@ export type NotificacionLeida = { paquete: string; titulo: string; texto: string
 
 export type PagoDetectado =
   | { tipo: 'gasto'; descripcion: string; monto: number; moneda: 'ARS' | 'USD'; fecha: string; fuente: string | null; original: string }
-  | { tipo: 'retiro'; monto: number; fecha: string; fuente: string | null; original: string };
+  | { tipo: 'retiro'; monto: number; fecha: string; fuente: string | null; original: string }
+  /** Cobró el sueldo: la app actualiza solo el sueldo del perfil */
+  | { tipo: 'sueldo'; monto: number; fecha: string; fuente: string | null; original: string };
 
 const APPS: Record<string, string> = {
   'com.mercadopago.wallet': 'Mercado Pago',
@@ -40,6 +42,7 @@ const NOMBRES = [
 const MONTO = /(US\$|U\$S|USD|\$)\s?(\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d+(?:[.,]\d{1,2})?)/i;
 const GASTO = /(pagaste|compraste|consumo|compra (aprobada|realizada)|pago (aprobado|realizado)|d[eé]bito|transferiste|enviaste|le pagaste|se debit)/i;
 const RETIRO = /(extra(ji|c)|retir(aste|o de efectivo)|sacaste)/i;
+const SUELDO = /(sueldo|haberes|acreditaci[oó]n de (tu )?(sueldo|haberes)|pago de n[oó]mina)/i;
 const INGRESO = /(recibiste|te (transfiri|envi|pag|deposit)|acredit|reintegro|devoluci|cobraste|ingres(ó|o) (dinero|plata)|rendimiento|ganaste)/i;
 
 // "$ 8.500,50" → 8500.5 ; "$8500" → 8500 ; "$ 1.234" → 1234
@@ -67,8 +70,6 @@ function comercioDe(texto: string, finMonto: number) {
 export function interpretarNotificacion(n: NotificacionLeida): PagoDetectado | null {
   const original = [n.titulo, n.texto].filter(Boolean).join(' · ');
   const texto = `${n.titulo}. ${n.texto}`;
-  if (INGRESO.test(texto)) return null;
-
   const monto = texto.match(MONTO);
   if (!monto || monto.index === undefined) return null;
   const valor = leerImporte(monto[2]);
@@ -76,6 +77,9 @@ export function interpretarNotificacion(n: NotificacionLeida): PagoDetectado | n
 
   const fecha = formatearFecha(new Date(n.cuando));
   const fuente = fuenteDe(n);
+  // El sueldo es plata que entra, pero sirve: actualiza solo el sueldo del perfil
+  if (SUELDO.test(texto) && monto[1] === '$') return { tipo: 'sueldo', monto: valor, fecha, fuente, original };
+  if (INGRESO.test(texto)) return null;
   if (RETIRO.test(texto)) return { tipo: 'retiro', monto: valor, fecha, fuente, original };
   if (!GASTO.test(texto)) return null;
 

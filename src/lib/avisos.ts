@@ -7,6 +7,7 @@ import type { Fijo, MedioPago, PagoFijo } from './tipos';
 
 // Avisos con notificaciones locales (las programa el mismo celular): no necesitan servidor y funcionan en Expo Go.
 // - Cierre: un día antes del cierre de cada tarjeta, a las 10.
+// - Resumen del domingo: lo gastado en la semana y lo que queda del mes (mismo interruptor que el cierre).
 // - Vencimiento: un día antes de que venza cada gasto fijo que no se debita solo (mismo interruptor que el cierre).
 // - Recordatorio: a la noche, solo los días en que no anotaste ningún gasto.
 // - Billetera: todos los días o los domingos, para contar la plata y descubrir lo que se gastó sin anotar.
@@ -127,6 +128,29 @@ export async function programarAvisosVencimiento(fijos: Fijo[], pagos: PagoFijo[
       });
     }
   }
+}
+
+// ---------- Resumen del domingo ----------
+
+// Domingo a las 19 h: "Esta semana gastaste $X. Te quedan $Y para el mes".
+// Los números se calculan al abrir la app, así que se reprograma cada vez que se abre (mismo interruptor que el cierre).
+export async function programarResumenSemanal(gastadoSemana: number, quedanEnElMes: number | null) {
+  if (!(await avisosActivados())) return;
+  configurar();
+  await cancelarTipo('resumen-');
+  const ahora = new Date();
+  const domingo = new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate() + ((7 - ahora.getDay()) % 7), 19, 0);
+  if (domingo <= ahora) domingo.setDate(domingo.getDate() + 7);
+  const resto = quedanEnElMes === null ? '' : ` Te quedan ${formatearMonto(Math.round(Math.max(quedanEnElMes, 0)))} para el mes.`;
+  await Notifications.scheduleNotificationAsync({
+    identifier: `resumen-${formatearFecha(domingo)}`,
+    content: {
+      title: 'Tu semana en un vistazo 📊',
+      body: `En los últimos 7 días gastaste ${formatearMonto(Math.round(gastadoSemana))}.${resto}`,
+      data: { url: '/' },
+    },
+    trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: domingo, channelId: CANAL },
+  });
 }
 
 // ---------- Contar la billetera ----------
