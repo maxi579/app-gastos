@@ -163,7 +163,11 @@ const styles = StyleSheet.create({
     borderTopColor: colores.borde,
     borderTopWidth: StyleSheet.hairlineWidth,
     // En la web no hay área segura abajo: le damos un poco más de alto para que entren los textos
-    ...(Platform.OS === 'web' && { height: 62, paddingBottom: 6 }),
+    // En el iPhone con la web agregada a la pantalla de inicio, suma el espacio de la rayita de abajo
+    ...(Platform.OS === 'web' && {
+      height: 'calc(62px + env(safe-area-inset-bottom))' as unknown as number,
+      paddingBottom: 'max(6px, env(safe-area-inset-bottom))' as unknown as number,
+    }),
   },
   botonCargar: {
     width: 46,
