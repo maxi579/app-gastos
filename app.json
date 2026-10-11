@@ -53,6 +53,13 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "backgroundColor": "#0b1120"
+    "backgroundColor": "#0b1120",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7d1fe309-48d4-43e4-b9c9-c531b8704e9a"
+      }
+    },
+    "owner": "maxi755"
   }
 }
