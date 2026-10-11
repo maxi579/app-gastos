@@ -8,11 +8,11 @@ import { useAviso } from './Toast';
 import { Texto as Text } from './ui';
 
 // Guía para armar un Atajo de iPhone que anota gastos con la voz:
-// Siri dicta el texto, el Atajo abre appgastos://cargar?texto=... y la app lo guarda.
+// Siri dicta el texto, el Atajo abre sorted://cargar?texto=... y la app lo guarda.
 export default function GuiaSiri() {
   const aviso = useAviso();
   const [abierta, setAbierta] = useState(false);
-  // En Expo Go la dirección es exp://..., en la app instalada es appgastos://
+  // En Expo Go la dirección es exp://..., en la app instalada es sorted://
   const enlace = `${Linking.createURL('cargar')}?guardar=si&texto=`;
 
   async function copiar() {

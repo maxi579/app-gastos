@@ -47,8 +47,8 @@ class LectorService : NotificationListenerService() {
       val canal = NotificationChannel(CANAL, "Pagos detectados", NotificationManager.IMPORTANCE_DEFAULT)
       getSystemService(NotificationManager::class.java).createNotificationChannel(canal)
     }
-    // appgastos:// es el "scheme" de app.json
-    val abrir = Intent(Intent.ACTION_VIEW, Uri.parse("appgastos://revisar")).setPackage(packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    // sorted:// es el "scheme" de app.json
+    val abrir = Intent(Intent.ACTION_VIEW, Uri.parse("sorted://revisar")).setPackage(packageName).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     val alTocar = PendingIntent.getActivity(this, 0, abrir, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     val aviso = NotificationCompat.Builder(this, CANAL)
       .setSmallIcon(applicationInfo.icon)

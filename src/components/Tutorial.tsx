@@ -22,7 +22,7 @@ type Paso = {
 };
 
 const PASOS: Paso[] = [
-  { titulo: '¡Hola! 👋', texto: 'Te muestro cómo usar la app en un minuto. Vas a ir tocando donde te indique.' },
+  { titulo: '¡Hola! 👋', texto: 'Te muestro cómo usar Sorted en un minuto. Vas a ir tocando donde te indique.' },
   {
     objetivo: 'resumen-mes',
     titulo: 'Tu mes, de un vistazo',

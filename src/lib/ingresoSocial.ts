@@ -8,7 +8,7 @@ import { supabase } from './supabase';
 // Entrar con Google (celular y web) y con Apple (solo iPhone).
 //
 // Google: Supabase arma la dirección de Google; la abrimos en una ventana segura del sistema y,
-// al terminar, Google vuelve a la app con la sesión en el link (appgastos://#access_token=...).
+// al terminar, Google vuelve a la app con la sesión en el link (sorted://#access_token=...).
 // Apple: el iPhone muestra su propia hoja de "Iniciar sesión con Apple" y le pasamos el token a Supabase.
 
 // En la web, si la ventana de Google se abrió como popup, esto la cierra al volver
@@ -18,7 +18,7 @@ if (typeof window !== 'undefined') WebBrowser.maybeCompleteAuthSession();
 const CLAVE_PEDIDO = 'ingreso-google-pedido';
 const VIGENCIA_PEDIDO_MS = 10 * 60 * 1000;
 
-// appgastos:// en la app instalada, exp://.../--/ en Expo Go, https://.../ en la web
+// sorted:// en la app instalada, exp://.../--/ en Expo Go, https://.../ en la web
 const direccionDeVuelta = () => Linking.createURL('/');
 
 export class IngresoCancelado extends Error {}

@@ -36,7 +36,7 @@ function valoresDesdeTexto(entrada: string, medios: MedioPago[], historial: Gast
 export default function Cargar() {
   const datos = useDatos();
   const aviso = useAviso();
-  // Siri / Atajos abren la app con appgastos://cargar?texto=café 3500 con mp (y &guardar=si para guardarlo directo)
+  // Siri / Atajos abren la app con sorted://cargar?texto=café 3500 con mp (y &guardar=si para guardarlo directo)
   const parametros = useLocalSearchParams<{ texto?: string; guardar?: string }>();
   const [texto, setTexto] = useState('');
   const [medios, setMedios] = useState<MedioPago[] | null>(null);

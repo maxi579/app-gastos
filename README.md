@@ -1,4 +1,6 @@
-# 💳 Gastos — credit cards and installments under control
+<img src="assets/marca/icono.svg" width="72" alt="Sorted" />
+
+# Sorted — your money, sorted
 
 🇪🇸 [Leer en español](README.es.md)
 
@@ -125,7 +127,7 @@ Each statement uses Anthropic API credits (a few cents per statement). Demo mode
 
 ### Sign in with Google and Apple
 
-Run `supabase/migraciones/002_nombre_desde_google_y_apple.sql`. For Google, create a *Web application* OAuth client in Google Cloud Console with redirect URI `https://YOUR_PROJECT.supabase.co/auth/v1/callback` and paste its Client ID and Secret into Supabase → Authentication → Providers → Google. For Apple (native, iPhone only), add the app's bundle ID (and `host.exp.Exponent` for Expo Go) to the Apple provider's *Client IDs*. Add `appgastos://**`, `exp://**` and the web demo URL to Authentication → URL Configuration → Redirect URLs.
+Run `supabase/migraciones/002_nombre_desde_google_y_apple.sql`. For Google, create a *Web application* OAuth client in Google Cloud Console with redirect URI `https://YOUR_PROJECT.supabase.co/auth/v1/callback` and paste its Client ID and Secret into Supabase → Authentication → Providers → Google. For Apple (native, iPhone only), add the app's bundle ID (and `host.exp.Exponent` for Expo Go) to the Apple provider's *Client IDs*. Add `sorted://**`, `appgastos://**` (legacy), `exp://**` and the web demo URL to Authentication → URL Configuration → Redirect URLs.
 
 ### Building the web demo
 

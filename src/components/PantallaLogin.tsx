@@ -7,6 +7,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colores, degradados, radios } from '../constants/tema';
 import { appleDisponible, IngresoCancelado, ingresarConApple, ingresarConGoogle } from '../lib/ingresoSocial';
 import { supabase } from '../lib/supabase';
+import { LogoSorted } from './Logo';
 import { Boton, Entrada, Texto as Text } from './ui';
 
 const BENEFICIOS = [
@@ -65,7 +66,7 @@ export default function PantallaLogin({ onProbarDemo, errorInicial = null }: Pro
       <KeyboardAvoidingView style={styles.fondo} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
           <Animated.View entering={FadeInDown.springify()} style={styles.logo}>
-            <Ionicons name="wallet" size={34} color={colores.sobrePrimario} />
+            <LogoSorted />
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(80).springify()}>
@@ -172,19 +173,7 @@ function traducirError(mensaje: string) {
 const styles = StyleSheet.create({
   fondo: { flex: 1 },
   contenido: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingVertical: 60, maxWidth: 480, width: '100%', alignSelf: 'center' },
-  logo: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: colores.primario,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    shadowColor: colores.primario,
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 6 },
-  },
+  logo: { marginBottom: 28 },
   titulo: { fontSize: 36, fontWeight: '800', color: colores.texto, letterSpacing: -1.2 },
   subtitulo: { fontSize: 16, color: colores.textoSecundario, marginTop: 6 },
   beneficios: { gap: 12, marginTop: 28 },

@@ -1,15 +1,19 @@
 {
   "expo": {
-    "name": "app-gastos",
-    "slug": "app-gastos",
+    "name": "Sorted",
+    "slug": "sorted",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "appgastos",
+    "scheme": [
+      "sorted",
+      "appgastos"
+    ],
     "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/expo.icon",
-      "usesAppleSignIn": true
+      "icon": "./assets/images/icon.png",
+      "usesAppleSignIn": true,
+      "bundleIdentifier": "com.maxi579.sorted"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +22,8 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.maxi579.sorted"
     },
     "web": {
       "output": "static",

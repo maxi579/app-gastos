@@ -42,7 +42,7 @@ const ESQUEMA = {
   },
 };
 
-const INSTRUCCIONES = `Este es un mail que un usuario argentino reenvió a su app de gastos. Puede ser el aviso de un pago (Mercado Pago, un banco, una billetera, una tarjeta) o cualquier otra cosa.
+const INSTRUCCIONES = `Este es un mail que un usuario argentino reenvió a Sorted, su app de gastos. Puede ser el aviso de un pago (Mercado Pago, un banco, una billetera, una tarjeta) o cualquier otra cosa.
 
 Decidí si confirma un gasto que hizo el usuario: un pago, una compra con tarjeta, un débito automático o una transferencia que él envió. NO es un gasto: dinero recibido, reintegros, devoluciones, promociones, resúmenes de cuenta, códigos de seguridad, newsletters.
 

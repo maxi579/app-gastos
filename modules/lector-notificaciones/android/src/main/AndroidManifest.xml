@@ -3,7 +3,7 @@
     <!-- Recibe las notificaciones de otras apps, solo si el usuario lo habilita en Ajustes → Acceso a notificaciones -->
     <service
       android:name=".LectorService"
-      android:label="Gastos: detectar pagos"
+      android:label="Sorted: detectar pagos"
       android:exported="true"
       android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
       <intent-filter>

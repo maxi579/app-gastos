@@ -1,4 +1,6 @@
-# 💳 App de Gastos — tarjetas y cuotas bajo control
+<img src="assets/marca/icono.svg" width="72" alt="Sorted" />
+
+# Sorted — tu plata, en orden
 
 🇬🇧 [Read in English](README.md)
 
@@ -141,7 +143,7 @@ Cada resumen leído consume créditos de la API de Anthropic (unos pocos centavo
 1. Correr [`supabase/migraciones/002_nombre_desde_google_y_apple.sql`](supabase/migraciones/002_nombre_desde_google_y_apple.sql) (el perfil toma el nombre de la cuenta de Google o Apple).
 2. **Google**: en Google Cloud Console, crear un *ID de cliente de OAuth* de tipo *Aplicación web* con el URI de redireccionamiento `https://TU_PROYECTO.supabase.co/auth/v1/callback`, y pegar el Client ID y el Client Secret en Supabase → Authentication → Providers → Google.
 3. **Apple** (solo iPhone, inicio de sesión nativo): en Supabase → Authentication → Providers → Apple, agregar en *Client IDs* el bundle ID de la app y `host.exp.Exponent` para probar con Expo Go. Requiere una cuenta de Apple Developer.
-4. En Supabase → Authentication → URL Configuration → Redirect URLs, agregar `appgastos://**`, `exp://**` y la dirección de la demo web.
+4. En Supabase → Authentication → URL Configuration → Redirect URLs, agregar `sorted://**`, `appgastos://**` (direcciones viejas), `exp://**` y la dirección de la demo web.
 
 ### Publicar la demo web
 
