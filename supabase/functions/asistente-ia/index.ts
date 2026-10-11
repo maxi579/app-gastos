@@ -11,7 +11,8 @@ import type Anthropic from 'npm:@anthropic-ai/sdk';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { claude, clienteServicio, CORS, errorDeClaude, MODELO, RESPALDO, responder, textoDe, usuarioDelPedido } from '../_compartido/comun.ts';
 
-const MENSAJES_POR_DIA = 30;
+// Bajo mientras la app está en desarrollo, para cuidar el crédito de la API. Subirlo al lanzarla.
+const MENSAJES_POR_DIA = 10;
 const HISTORIAL_MAXIMO = 20;
 const VUELTAS_MAXIMAS = 6;
 

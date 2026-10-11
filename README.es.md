@@ -19,7 +19,7 @@ Hecha con **Expo (React Native) + TypeScript + Supabase**. Funciona en iOS, Andr
 - **Carga en lenguaje natural**: escribís *"zapas 120k en 6 cuotas con visa"* y la app detecta monto, cuotas, moneda, tarjeta y categoría.
 - **Cuotas proyectadas** por resumen, % del sueldo con semáforo y total pendiente **en plata de hoy**.
 - **Asistente con personalidad** (amable, directo o estricto) que da consejos con tus datos: cómo venís, cierres de tarjeta y vencimientos que se vienen, efectivo sin anotar, muchas salidas a comer… Funciona con reglas, sin IA: es instantáneo, gratis y nunca inventa números.
-- **Asistente con IA (chat)**: le preguntás *"¿cuánto gasté en Uber en septiembre?"* o *"armame el informe del mes"* y responde consultando tus datos reales. Límite de 30 mensajes por día por usuario.
+- **Asistente con IA (chat)**: le preguntás *"¿cuánto gasté en Uber en septiembre?"* o *"armame el informe del mes"* y responde consultando tus datos reales. Límite de 10 mensajes por día por usuario mientras está en desarrollo.
 - **Avisos antes del cierre** de cada tarjeta (notificaciones locales, sin servidor).
 - **Dólar tarjeta e inflación del INDEC automáticos** (DolarApi y ArgentinaDatos), guardados en el celular.
 

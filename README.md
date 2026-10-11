@@ -20,7 +20,7 @@ Built with **Expo (React Native) + TypeScript + Supabase**. Runs on iOS, Android
 - **Installments projected** per statement, % of salary with a traffic-light indicator, and total remaining debt **in today's money**.
 - **Assistant with a personality** (friendly, direct or strict) that gives tips from your own data: how the month is going, card closing dates coming up, too many takeout meals… Rule-based, no AI: instant, free, and it never makes up numbers.
 - **Alerts before each card's closing date** (local notifications, no server).
-- **AI assistant chat**: ask *"how much did I spend on Uber in September?"* or *"give me this month's report"* and Claude answers using your real data through tools (30 messages per user per day).
+- **AI assistant chat**: ask *"how much did I spend on Uber in September?"* or *"give me this month's report"* and Claude answers using your real data through tools (10 messages per user per day while in development).
 - **Card exchange rate and official inflation (INDEC) fetched automatically** (DolarApi and ArgentinaDatos) and cached on the device.
 
 **Fixed bills, cash and net worth**
