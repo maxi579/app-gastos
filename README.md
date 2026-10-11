@@ -123,6 +123,10 @@ Each statement uses Anthropic API credits (a few cents per statement). Demo mode
 3. **Email payments** (optional): enable [Postmark](https://postmarkapp.com) Inbound, set `MAIL_SECRETO` with `npx supabase secrets set`, deploy with `npx supabase functions deploy recibir-mail --no-verify-jwt`, point the inbound webhook to `https://YOUR_PROJECT.supabase.co/functions/v1/recibir-mail?clave=<MAIL_SECRETO>`, and add `EXPO_PUBLIC_MAIL_PAGOS=<your inbound address>` to `.env.local`.
 4. **Push notifications and the Android notification reader** need a compiled app (not Expo Go): `npx eas-cli@latest build --profile development --platform android`. The reader is a local native module in [`modules/lector-notificaciones`](modules/lector-notificaciones). iOS doesn't allow reading other apps' notifications, so iPhone users get email forwarding, the scanner and Siri instead.
 
+### Sign in with Google and Apple
+
+Run `supabase/migraciones/002_nombre_desde_google_y_apple.sql`. For Google, create a *Web application* OAuth client in Google Cloud Console with redirect URI `https://YOUR_PROJECT.supabase.co/auth/v1/callback` and paste its Client ID and Secret into Supabase → Authentication → Providers → Google. For Apple (native, iPhone only), add the app's bundle ID (and `host.exp.Exponent` for Expo Go) to the Apple provider's *Client IDs*. Add `appgastos://**`, `exp://**` and the web demo URL to Authentication → URL Configuration → Redirect URLs.
+
 ### Building the web demo
 
 ```bash

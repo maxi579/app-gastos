@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colores, degradados, radios } from '../constants/tema';
+import { appleDisponible, IngresoCancelado, ingresarConApple, ingresarConGoogle } from '../lib/ingresoSocial';
 import { supabase } from '../lib/supabase';
 import { Boton, Entrada, Texto as Text } from './ui';
 
@@ -13,15 +15,36 @@ const BENEFICIOS = [
   { icono: 'calculator-outline', texto: 'Sabé si te conviene contado o en cuotas' },
 ] as const;
 
-export default function PantallaLogin({ onProbarDemo }: { onProbarDemo: () => void }) {
+type Props = { onProbarDemo: () => void; errorInicial?: string | null };
+
+export default function PantallaLogin({ onProbarDemo, errorInicial = null }: Props) {
   const [modo, setModo] = useState<'ingresar' | 'registrarse'>('ingresar');
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [cargando, setCargando] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [conApple, setConApple] = useState(false);
+  const [entrandoCon, setEntrandoCon] = useState<'google' | 'apple' | null>(null);
+
+  useEffect(() => {
+    appleDisponible().then(setConApple).catch(() => setConApple(false));
+  }, []);
 
   const esRegistro = modo === 'registrarse';
+  const mensajeError = error ?? errorInicial;
+
+  async function entrarCon(proveedor: 'google' | 'apple') {
+    setError(null);
+    setEntrandoCon(proveedor);
+    try {
+      if (proveedor === 'google') await ingresarConGoogle();
+      else await ingresarConApple();
+    } catch (e) {
+      if (!(e instanceof IngresoCancelado)) setError(traducirError((e as Error).message));
+    }
+    setEntrandoCon(null);
+  }
 
   async function enviar() {
     setError(null);
@@ -64,6 +87,38 @@ export default function PantallaLogin({ onProbarDemo }: { onProbarDemo: () => vo
           )}
 
           <Animated.View entering={FadeInDown.delay(240).springify()} style={styles.formulario}>
+            {/* Entrar sin contraseña: lo más cómodo, sobre todo para personas mayores */}
+            <Pressable
+              style={({ pressed }) => [styles.botonGoogle, pressed && { opacity: 0.85 }]}
+              onPress={() => entrarCon('google')}
+              disabled={entrandoCon !== null}
+              accessibilityLabel="Continuar con Google"
+            >
+              {entrandoCon === 'google' ? (
+                <ActivityIndicator color="#1f1f1f" />
+              ) : (
+                <>
+                  <Ionicons name="logo-google" size={20} color="#1f1f1f" />
+                  <Text style={styles.textoGoogle}>Continuar con Google</Text>
+                </>
+              )}
+            </Pressable>
+            {conApple && (
+              <AppleAuthentication.AppleAuthenticationButton
+                buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+                cornerRadius={radios.medio}
+                style={styles.botonApple}
+                onPress={() => entrarCon('apple')}
+              />
+            )}
+
+            <View style={styles.separador}>
+              <View style={styles.linea} />
+              <Text style={styles.separadorTexto}>o con tu email</Text>
+              <View style={styles.linea} />
+            </View>
+
             {esRegistro && <Entrada style={styles.input} placeholder="Tu nombre" value={nombre} onChangeText={setNombre} />}
             <Entrada
               style={styles.input}
@@ -76,7 +131,7 @@ export default function PantallaLogin({ onProbarDemo }: { onProbarDemo: () => vo
             />
             <Entrada style={styles.input} placeholder="Contraseña" value={password} onChangeText={setPassword} secureTextEntry />
 
-            {error && <Text style={styles.error}>{error}</Text>}
+            {mensajeError && <Text style={styles.error}>{mensajeError}</Text>}
 
             <Boton titulo={esRegistro ? 'Crear cuenta' : 'Ingresar'} onPress={enviar} cargando={cargando} estilo={{ marginTop: 4 }} />
 
@@ -107,6 +162,9 @@ function traducirError(mensaje: string) {
   if (mensaje.includes('Invalid login credentials')) return 'Email o contraseña incorrectos.';
   if (mensaje.includes('already registered')) return 'Ya existe una cuenta con ese email.';
   if (mensaje.includes('Password should be')) return 'La contraseña tiene que tener al menos 6 caracteres.';
+  if (mensaje.includes('provider is not enabled') || mensaje.includes('Unsupported provider')) {
+    return 'Esta forma de entrar todavía no está activada. Probá con tu email.';
+  }
   if (mensaje.includes('valid email') || mensaje.includes('invalid')) return 'Revisá que el email esté bien escrito.';
   return mensaje;
 }
@@ -141,6 +199,17 @@ const styles = StyleSheet.create({
   },
   beneficioTexto: { color: colores.textoChip, fontSize: 15, flex: 1 },
   formulario: { marginTop: 32 },
+  botonGoogle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: radios.medio,
+    height: 52,
+  },
+  textoGoogle: { color: '#1f1f1f', fontSize: 16, fontWeight: '600' },
+  botonApple: { width: '100%', height: 52, marginTop: 12 },
   input: {
     backgroundColor: 'rgba(21, 29, 46, 0.85)',
     color: colores.texto,

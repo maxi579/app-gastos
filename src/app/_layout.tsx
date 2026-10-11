@@ -14,7 +14,9 @@ import { ActivityIndicator, Platform, StyleSheet, View, type ColorValue } from '
 import PantallaLogin from '../components/PantallaLogin';
 import { ProveedorAvisos } from '../components/Toast';
 import { colores, fuentes } from '../constants/tema';
+import * as Linking from 'expo-linking';
 import { escucharToques } from '../lib/avisos';
+import { sesionDesdeLink, traeSesion } from '../lib/ingresoSocial';
 import { ProveedorDatos } from '../lib/contextoDatos';
 import { fuenteSupabase } from '../lib/datos';
 import { crearFuenteDemo } from '../lib/demo';
@@ -24,6 +26,7 @@ export default function Layout() {
   const [sesion, setSesion] = useState<Session | null>(null);
   const [cargando, setCargando] = useState(!soloDemo);
   const [modoDemo, setModoDemo] = useState(soloDemo);
+  const [errorIngreso, setErrorIngreso] = useState<string | null>(null);
   const [fuentesListas] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -40,6 +43,26 @@ export default function Layout() {
     });
     const { data } = supabase.auth.onAuthStateChange((_evento, nuevaSesion) => setSesion(nuevaSesion));
     return () => data.subscription.unsubscribe();
+  }, []);
+
+  // Al volver de Google la sesión llega en el link: en la web, en la dirección de la página;
+  // en el celular, normalmente la atrapa la ventana de Google, y si no, llega como link a la app.
+  useEffect(() => {
+    if (soloDemo) return;
+    const atender = (url: string | null) => {
+      if (!url || !traeSesion(url)) return;
+      sesionDesdeLink(url).catch((e) => setErrorIngreso((e as Error).message));
+    };
+    if (Platform.OS === 'web') {
+      const url = window.location.href;
+      // Sacamos los datos de la dirección para que no queden a la vista ni en el historial
+      if (traeSesion(url)) window.history.replaceState(null, '', window.location.pathname);
+      atender(url);
+      return;
+    }
+    Linking.getInitialURL().then(atender);
+    const suscripcion = Linking.addEventListener('url', ({ url }) => atender(url));
+    return () => suscripcion.remove();
   }, []);
 
   // Tocar el recordatorio de la noche abre directo la pantalla para anotar
@@ -66,7 +89,7 @@ export default function Layout() {
       </View>
     );
   } else if (!sesion && !modoDemo) {
-    contenido = <PantallaLogin onProbarDemo={() => setModoDemo(true)} />;
+    contenido = <PantallaLogin onProbarDemo={() => setModoDemo(true)} errorInicial={errorIngreso} />;
   } else {
     contenido = (
       <ProveedorDatos fuente={fuente}>
