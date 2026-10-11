@@ -16,7 +16,8 @@ import org.json.JSONObject
 // Android le pasa a este servicio cada notificación que llega (si el usuario dio el permiso).
 // Solo guardamos las que tienen un monto ("$ 8.500"); el resto se ignora sin guardarse.
 class LectorService : NotificationListenerService() {
-  private val conMonto = Regex("""(\$|US\$|U\$S|USD)\s?\d""")
+  // [$] en vez de \$: en los textos de Kotlin, "$S" se leería como la variable S
+  private val conMonto = Regex("""([$]|US[$]|U[$]S|USD)\s?\d""")
   private val pareceGasto = Regex("""(?i)(pagaste|compraste|consumo|compra|d[eé]bito|transferiste|enviaste|extraj|extracci|retiro)""")
   private val pareceIngreso = Regex("""(?i)(recibiste|te (transfiri|envi|pag)|acredit|reintegro|devoluci|cobraste)""")
 
