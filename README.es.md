@@ -8,7 +8,7 @@ App móvil para llevar el control de gastos con tarjeta en Argentina: **cuánto 
 
 Hecha con **Expo (React Native) + TypeScript + Supabase**. Funciona en iOS, Android y web.
 
-🔗 **Probala online (modo demo, sin cuenta):** [maxi579.github.io/app-gastos](https://maxi579.github.io/app-gastos/)
+🔗 **Probala online (modo demo, sin cuenta):** [maxi579.github.io/sorted](https://maxi579.github.io/sorted/)
 
 ## Funcionalidades
 
@@ -148,7 +148,7 @@ Cada resumen leído consume créditos de la API de Anthropic (unos pocos centavo
 ### Publicar la demo web
 
 ```bash
-EXPO_NO_DOTENV=1 EXPO_PUBLIC_SOLO_DEMO=true EXPO_BASE_URL=/app-gastos npx expo export --platform web
+EXPO_NO_DOTENV=1 EXPO_PUBLIC_SOLO_DEMO=true EXPO_BASE_URL=/sorted npx expo export --platform web
 ```
 
 Genera `dist/` con la app en modo demo y sin datos de Supabase, lista para GitHub Pages. La base de datos se crea con [`supabase/schema.sql`](supabase/schema.sql).

@@ -8,7 +8,7 @@ A mobile app for managing credit card spending in Argentina, where buying in ins
 
 Built with **Expo (React Native) + TypeScript + Supabase**. Runs on iOS, Android and the web. The UI is in Spanish.
 
-🔗 **Try it online (demo mode, no account needed):** [maxi579.github.io/app-gastos](https://maxi579.github.io/app-gastos/)
+🔗 **Try it online (demo mode, no account needed):** [maxi579.github.io/sorted](https://maxi579.github.io/sorted/)
 
 ## Features
 
@@ -132,7 +132,7 @@ Run `supabase/migraciones/002_nombre_desde_google_y_apple.sql`. For Google, crea
 ### Building the web demo
 
 ```bash
-EXPO_NO_DOTENV=1 EXPO_PUBLIC_SOLO_DEMO=true EXPO_BASE_URL=/app-gastos npx expo export --platform web
+EXPO_NO_DOTENV=1 EXPO_PUBLIC_SOLO_DEMO=true EXPO_BASE_URL=/sorted npx expo export --platform web
 ```
 
 Generates `dist/` with the app in demo mode and no Supabase data, ready for static hosting. The database schema is in [`supabase/schema.sql`](supabase/schema.sql).
