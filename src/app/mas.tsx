@@ -13,7 +13,8 @@ const GRUPOS: { titulo: string; opciones: Opcion[] }[] = [
     opciones: [
       { icono: 'calendar', titulo: 'Cuotas', detalle: 'Lo que tenés que pagar, mes por mes', destino: '/cuotas' },
       { icono: 'cash', titulo: 'Efectivo', detalle: 'Tu billetera y lo que pagás en mano', destino: '/efectivo' },
-      { icono: 'trending-up', titulo: 'Activos', detalle: 'Lo que tenés y cuánto te puede rendir', destino: '/activos' },
+      { icono: 'calculator', titulo: '¿Cuánto me rinde?', detalle: 'Plazo fijo, billeteras e inflación', destino: '/rendimiento' },
+      { icono: 'trending-up', titulo: 'Activos', detalle: 'Lo que tenés y cuánto vale hoy', destino: '/activos' },
       { icono: 'bag-check', titulo: '¿Lo compro?', detalle: 'Te digo si te conviene antes de comprar', destino: '/comprar' },
     ],
   },

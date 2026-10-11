@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useAviso } from '../components/Toast';
@@ -171,6 +171,15 @@ export default function Activos() {
             <Text style={styles.fuente}>Dólares valuados al blue compra: {formatearMonto(indicadores.dolarBlue)}</Text>
           )}
         </View>
+
+        <Pressable style={({ pressed }) => [styles.calculadora, pressed && { opacity: 0.8 }]} onPress={() => router.push('/rendimiento')}>
+          <Ionicons name="calculator" size={22} color={colores.primario} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.nombre}>¿Cuánto me rinde?</Text>
+            <Text style={styles.detalle}>Compará plazo fijo, billeteras y la inflación con tu plata</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />
+        </Pressable>
 
         <Text style={[tipografia.seccion, styles.seccion]}>Lo que tenés</Text>
         {valuados.length === 0 && (
@@ -349,6 +358,17 @@ const styles = StyleSheet.create({
   dato: { color: colores.textoChip, fontSize: 14 },
   fuente: { color: colores.textoTenue, fontSize: 12, marginTop: 6 },
   seccion: { marginTop: 28, marginBottom: 12 },
+  calculadora: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: colores.superficie,
+    borderRadius: radios.grande,
+    borderWidth: 1,
+    borderColor: colores.primario,
+    padding: 14,
+    marginTop: 14,
+  },
   vacio: { alignItems: 'center', gap: 10, paddingVertical: 20 },
   vacioTexto: { color: colores.textoTenue, fontSize: 15, textAlign: 'center', lineHeight: 22 },
   item: {

@@ -4,6 +4,16 @@ import { inflacionAcumulada, valuarActivo } from '../src/lib/activos';
 import { balanceEfectivo, compararConteo, saldoEsperado } from '../src/lib/efectivo';
 import { anotarDebitos, debitosParaAnotar, detectarRecurrentes, fijosDelMes, gastoDeFijo, pendienteDeFijos, totalMensualFijos, vencimientoDelMes } from '../src/lib/fijos';
 import { leerFecha } from '../src/lib/formato';
+import {
+  leerBancos,
+  mejorBanco,
+  montoParaNoPerder,
+  nombreBanco,
+  simularCuentaRemunerada,
+  simularPlazoFijo,
+  tasaParaPlazo,
+  type BancoPlazoFijo,
+} from '../src/lib/rendimientos';
 import { interpretarNotificacion, leerImporte } from '../src/lib/interpretarNotificacion';
 import type { Activo, Conteo, Fijo, GastoGuardado, MedioPago, PagoFijo, Retiro } from '../src/lib/tipos';
 
@@ -302,5 +312,47 @@ describe('contar la billetera', () => {
     assert.deepEqual(compararConteo(93_000, 75_000), { tipo: 'falta', diferencia: 18_000 });
     assert.deepEqual(compararConteo(20_000, 30_000), { tipo: 'sobra', diferencia: 10_000 });
     assert.deepEqual(compararConteo(20_000, 19_800), { tipo: 'justo' });
+  });
+});
+
+describe('¿cuánto me rinde?', () => {
+  const nacion: BancoPlazoFijo = { entidad: 'BANCO DE LA NACION ARGENTINA', tna30: 0.1925, porPlazo: [{ dias: 90, tna: 0.2 }] };
+  const otro: BancoPlazoFijo = { entidad: 'BANCO CMF S.A.', tna30: 0.235, porPlazo: [] };
+
+  it('arma nombres de banco legibles', () => {
+    assert.equal(nombreBanco('BANCO DE LA NACION ARGENTINA'), 'Banco de la Nacion Argentina');
+    assert.equal(nombreBanco('BANCO CMF S.A.'), 'Banco CMF');
+  });
+
+  it('usa la tasa publicada para el plazo o renueva cada 30 días', () => {
+    assert.deepEqual(tasaParaPlazo(nacion, 90), { tna: 0.2, renovando: false });
+    assert.deepEqual(tasaParaPlazo(nacion, 180), { tna: 0.1925, renovando: true });
+    assert.deepEqual(tasaParaPlazo(nacion, 30), { tna: 0.1925, renovando: false });
+  });
+
+  it('calcula plazo fijo simple y renovando', () => {
+    assert.ok(Math.abs(simularPlazoFijo(1_000_000, 0.365, 30, false) - 1_030_000) < 1e-6);
+    assert.ok(Math.abs(simularPlazoFijo(1_000_000, 0.365, 60, true) - 1_000_000 * 1.03 * 1.03) < 1e-6);
+  });
+
+  it('calcula la cuenta remunerada con interés diario y lo necesario para no perder contra la inflación', () => {
+    assert.ok(Math.abs(simularCuentaRemunerada(100_000, 36.5, 1) - 100_100) < 1e-6);
+    assert.ok(Math.abs(montoParaNoPerder(100_000, 0.02, 60) - 104_040) < 1e-6);
+  });
+
+  it('elige el banco que más paga al final del plazo', () => {
+    assert.equal(mejorBanco([nacion, otro], 30)?.banco.entidad, 'BANCO CMF S.A.');
+    assert.equal(mejorBanco([], 30), null);
+  });
+
+  it('descarta datos raros de la API', () => {
+    const bancos = leerBancos([
+      { entidad: 'A', tnaClientes: 0.2, tasas: [{ plazoMinDias: 60, plazoMaxDias: 60, tna: 0.21 }, { plazoMinDias: 30, plazoMaxDias: 59, tna: 0.3 }] },
+      { entidad: 'B', tnaClientes: 0 },
+      { entidad: '', tnaClientes: 0.3 },
+      'basura',
+    ]);
+    assert.deepEqual(bancos, [{ entidad: 'A', tna30: 0.2, porPlazo: [{ dias: 60, tna: 0.21 }] }]);
+    assert.deepEqual(leerBancos(null), []);
   });
 });

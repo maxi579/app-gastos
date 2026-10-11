@@ -188,7 +188,7 @@ export default function Inicio() {
       detalle: efectivo.sinAnotar > 0 ? `${formatearMonto(Math.round(efectivo.sinAnotar))} sin anotar` : 'Contá tu billetera',
       destino: '/efectivo' as Href,
     },
-    { icono: 'trending-up', titulo: 'Activos', detalle: '¿Cuánto me rinde?', destino: '/activos' as Href },
+    { icono: 'calculator', titulo: '¿Cuánto me rinde?', detalle: 'Plazo fijo y billeteras', destino: '/rendimiento' as Href },
     { icono: 'calendar', titulo: 'Cuotas', detalle: 'Mes por mes', destino: '/cuotas' as Href },
     { icono: 'bag-check', titulo: '¿Lo compro?', detalle: 'Antes de comprar', destino: '/comprar' as Href },
   ];
