@@ -96,6 +96,8 @@ export default function Layout() {
       <ProveedorDatos fuente={fuente}>
         <ProveedorTutorial listo>
         <Tabs
+          // "Volver" sigue el historial real (de Ahorros vuelve a Más), no salta siempre a Inicio
+          backBehavior="history"
           screenOptions={{
             headerShown: false,
             sceneStyle: { backgroundColor: colores.fondo },
@@ -161,8 +163,10 @@ function icono(nombre: 'home' | 'repeat' | 'chatbubbles' | 'grid', objetivo?: st
 const styles = StyleSheet.create({
   barra: {
     backgroundColor: colores.superficie,
-    borderTopColor: colores.borde,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    // Sin borde ni sombra arriba: se veía como una línea blanca sobre la barra
+    borderTopWidth: 0,
+    elevation: 0,
+    shadowOpacity: 0,
     // En la web no hay área segura abajo: le damos un poco más de alto para que entren los textos
     // En el iPhone con la web agregada a la pantalla de inicio, suma el espacio de la rayita de abajo
     ...(Platform.OS === 'web' && {
