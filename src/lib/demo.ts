@@ -1,7 +1,7 @@
 import type { Coleccion, FilaGasto, FuenteDatos, GastoConMedio } from './datos';
 import { calcularPrimerMesCuota, formatearFecha } from './finanzas';
 import { mesDe } from './fijos';
-import type { Activo, Categoria, Conteo, Fijo, MedioPago, PagoFijo, Retiro, Sugerencia, Tono } from './tipos';
+import type { Activo, Aporte, Categoria, Conteo, Fijo, MedioPago, Meta, PagoFijo, Retiro, Sugerencia, Tono } from './tipos';
 
 // Modo demo: los mismos datos que tendría un usuario real, pero en memoria.
 // Sirve para probar la app sin cuenta (y para mostrarla en el portfolio).
@@ -98,6 +98,27 @@ function crearActivos(): Activo[] {
   ];
 }
 
+// El 1 de enero que viene, para la meta de vacaciones
+const proximoEnero = () => `${new Date().getFullYear() + 1}-01-15`;
+
+function crearMetas(): Meta[] {
+  return [
+    { id: 'm-vacaciones', nombre: 'Vacaciones', emoji: '🏖️', objetivo: 1_500_000, fecha_objetivo: proximoEnero(), activo_id: 'a-mp', ahorro_mensual: 150_000, dia_aporte: 5 },
+    { id: 'm-emergencia', nombre: 'Fondo de emergencia', emoji: '🛟', objetivo: 1_500_000, fecha_objetivo: null, activo_id: 'a-pf', ahorro_mensual: 50_000, dia_aporte: null },
+  ];
+}
+
+function crearAportes(): Aporte[] {
+  const aporte = (meta: string, monto: number, dias: number, automatico = false): Aporte => ({ id: `ap-${meta}-${dias}`, meta_id: meta, monto, fecha: haceDias(dias), automatico });
+  return [
+    aporte('m-vacaciones', 150_000, 66, true),
+    aporte('m-vacaciones', 150_000, 36, true),
+    aporte('m-vacaciones', 100_000, 20),
+    aporte('m-emergencia', 400_000, 90),
+    aporte('m-emergencia', 50_000, 40),
+  ];
+}
+
 function crearSugerencias(): Sugerencia[] {
   return [
     { id: 's-1', origen: 'mail', descripcion: 'Café Martínez', monto: 8_500, moneda: 'ARS', fecha: haceDias(0), fuente: 'Mercado Pago', texto_original: 'Pagaste $ 8.500 a Café Martínez', estado: 'pendiente' },
@@ -190,6 +211,8 @@ export function crearFuenteDemo(alSalir: () => void): FuenteDatos {
     retiros: coleccionDemo(retiros, 'retiro'),
     activos: coleccionDemo(crearActivos(), 'activo'),
     sugerencias: coleccionDemo(crearSugerencias(), 'sugerencia'),
+    metas: coleccionDemo(crearMetas(), 'meta'),
+    aportes: coleccionDemo(crearAportes(), 'aporte'),
     conteos: {
       ...coleccionDemo(conteos, 'conteo'),
       async crear(fila) {

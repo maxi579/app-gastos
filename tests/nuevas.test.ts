@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { inflacionAcumulada, valuarActivo } from '../src/lib/activos';
+import {
+  aportesParaHacer,
+  cuantoPorMes,
+  fechaEstimada,
+  fondoEmergenciaSugerido,
+  reservaPendiente,
+  ritmoMensual,
+  saldoMeta,
+  valorMeta,
+} from '../src/lib/ahorros';
 import { categoriaAprendida } from '../src/lib/aprendizaje';
 import { gastoUltimaSemana, presupuestoAutomatico, semanaInusual } from '../src/lib/patrones';
 import { balanceEfectivo, compararConteo, saldoEsperado } from '../src/lib/efectivo';
@@ -17,7 +27,7 @@ import {
   type BancoPlazoFijo,
 } from '../src/lib/rendimientos';
 import { interpretarNotificacion, leerImporte } from '../src/lib/interpretarNotificacion';
-import type { Activo, Conteo, Fijo, GastoGuardado, MedioPago, PagoFijo, Retiro } from '../src/lib/tipos';
+import type { Activo, Aporte, Conteo, Fijo, GastoGuardado, MedioPago, Meta, PagoFijo, Retiro } from '../src/lib/tipos';
 
 const hoy = new Date(2026, 9, 10); // 10 de octubre de 2026
 const visa: MedioPago = { id: 'v', nombre: 'Visa', banco: null, tipo: 'credito', red: 'visa', dia_cierre: 24, dia_vencimiento: 5 };
@@ -413,5 +423,57 @@ describe('la app aprende sola', () => {
 
   it('suma lo de los últimos 7 días', () => {
     assert.equal(gastoUltimaSemana([gasto('a', '2026-10-10', 5_000), gasto('b', '2026-10-04', 3_000), gasto('c', '2026-10-03', 9_000)], hoy), 8_000);
+  });
+});
+
+describe('ahorros', () => {
+  const meta = (extra: Partial<Meta> = {}): Meta => ({
+    id: 'm',
+    nombre: 'Vacaciones',
+    emoji: '✈️',
+    objetivo: 1_200_000,
+    fecha_objetivo: '2027-01-15',
+    activo_id: null,
+    ahorro_mensual: 150_000,
+    dia_aporte: null,
+    ...extra,
+  });
+  const aporte = (monto: number, fecha: string, extra: Partial<Aporte> = {}): Aporte => ({ id: fecha + monto, meta_id: 'm', monto, fecha, automatico: false, ...extra });
+  const mp: Activo = { id: 'mp', nombre: 'MP', tipo: 'remunerada', monto_inicial: 1, fecha_inicio: '2026-01-01', cantidad: null, tna: 36.5, plazo_dias: null, valor_actual: null, depreciacion_anual: null };
+
+  it('suma lo separado, resta lo que se sacó y agrega los intereses de donde está guardado', () => {
+    const aportes = [aporte(100_000, '2026-10-09'), aporte(-20_000, '2026-10-10'), aporte(5_000, '2026-10-10', { meta_id: 'otra' })];
+    assert.equal(saldoMeta(aportes, 'm'), 80_000);
+    const conInteres = valorMeta(aportes, 'm', mp, null, hoy);
+    assert.ok(Math.abs(conInteres.valor - (100_000 * Math.pow(1.001, 1) - 20_000)) < 1e-6); // 1 día al 36,5% anual = 0,1%
+    assert.ok(Math.abs(conInteres.intereses - 100) < 1e-6);
+    assert.equal(valorMeta(aportes, 'm', null, null, hoy).intereses, 0);
+  });
+
+  it('dice cuánto separar por mes para llegar a tiempo y cuándo se llega a este ritmo', () => {
+    assert.equal(cuantoPorMes(meta(), 300_000, hoy), 300_000); // faltan 900.000 en 3 meses (oct → ene)
+    assert.equal(cuantoPorMes(meta(), 1_300_000, hoy), 0);
+    assert.equal(cuantoPorMes(meta({ fecha_objetivo: null }), 0, hoy), null);
+    const aportes = [aporte(90_000, '2026-08-05'), aporte(90_000, '2026-09-05'), aporte(90_000, '2026-10-05'), aporte(500_000, '2026-01-05')];
+    assert.equal(ritmoMensual(aportes, 'm', hoy), 90_000);
+    assert.equal(fechaEstimada(meta(), 300_000, 90_000, hoy)?.toDateString(), new Date(2027, 7, 1).toDateString()); // 900.000 / 90.000 = 10 meses
+  });
+
+  it('"págate primero": reserva lo que falta separar este mes', () => {
+    const metas = [meta(), meta({ id: 'n', ahorro_mensual: 50_000 }), meta({ id: 'sin', ahorro_mensual: null })];
+    const aportes = [aporte(100_000, '2026-10-02'), aporte(80_000, '2026-10-03', { meta_id: 'n' })];
+    assert.equal(reservaPendiente(metas, aportes, hoy), 50_000); // a "m" le faltan 50.000; "n" ya se pasó
+  });
+
+  it('hace el aporte automático una vez por mes, cuando llega el día', () => {
+    const metas = [meta({ dia_aporte: 5 }), meta({ id: 'futuro', dia_aporte: 20 })];
+    assert.deepEqual(aportesParaHacer(metas, [], hoy).map((m) => m.id), ['m']);
+    assert.deepEqual(aportesParaHacer(metas, [aporte(150_000, '2026-10-05', { automatico: true })], hoy), []);
+  });
+
+  it('sugiere un fondo de emergencia de 3 meses', () => {
+    assert.equal(fondoEmergenciaSugerido(496_477, 0), 1_490_000);
+    assert.equal(fondoEmergenciaSugerido(0, 300_000), 900_000);
+    assert.equal(fondoEmergenciaSugerido(0, 0), null);
   });
 });

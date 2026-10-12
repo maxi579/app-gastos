@@ -116,3 +116,25 @@ export type Sugerencia = {
   texto_original: string | null;
   estado: EstadoSugerencia;
 };
+
+// ---------- Ahorros ----------
+
+/** Una meta de ahorro: para qué se junta la plata, cuánto y dónde está guardada */
+export type Meta = {
+  id: string;
+  nombre: string;
+  emoji: string;
+  /** Cuánto se quiere juntar (null = sin un monto fijo, por ejemplo "ahorro general") */
+  objetivo: number | null;
+  /** Para cuándo, 'AAAA-MM-DD' */
+  fecha_objetivo: string | null;
+  /** Dónde está guardada la plata: si es un activo que paga interés, la meta suma esos intereses */
+  activo_id: string | null;
+  /** Cuánto se planea separar por mes ("págate primero"): Inicio lo descuenta de lo que queda */
+  ahorro_mensual: number | null;
+  /** Si está, la app separa sola el ahorro mensual ese día del mes */
+  dia_aporte: number | null;
+};
+
+/** Plata que se separó para una meta (negativo = se sacó) */
+export type Aporte = { id: string; meta_id: string; monto: number; fecha: string; automatico: boolean };

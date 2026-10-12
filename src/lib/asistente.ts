@@ -14,7 +14,7 @@ export function emojiDe(tono: Tono) {
   return TONOS.find((t) => t.valor === tono)?.emoji ?? '🙂';
 }
 
-export type Consejo = { icono: 'wallet' | 'calendar' | 'restaurant' | 'cash' | 'receipt' | 'speedometer' | 'pulse'; texto: string };
+export type Consejo = { icono: 'wallet' | 'calendar' | 'restaurant' | 'cash' | 'receipt' | 'speedometer' | 'pulse' | 'flag'; texto: string };
 
 type Contexto = {
   tono: Tono;
@@ -31,6 +31,8 @@ type Contexto = {
   presupuestoPasado?: { categoria: string; porcentaje: number };
   /** Una categoría en la que esta semana se gastó mucho más que lo normal */
   semanaInusual?: { categoria: string; veces: number };
+  /** Una meta de ahorro a la que este mes todavía no se le separó nada (pasado el día 20) */
+  ahorroSinSeparar?: string;
 };
 
 type Frases = Record<Tono, string>;
@@ -125,7 +127,16 @@ export function consejos(ctx: Contexto): Consejo[] {
     });
   }
 
-  // 6. Efectivo que no se anotó
+  // 6. Una meta de ahorro sin separar este mes
+  if (ctx.ahorroSinSeparar) {
+    decir('flag', {
+      amable: `Este mes todavía no separaste nada para ${ctx.ahorroSinSeparar}. ¿Le ponemos algo, aunque sea poquito? 💚`,
+      directo: `Este mes no separaste nada para ${ctx.ahorroSinSeparar}.`,
+      estricto: `${ctx.ahorroSinSeparar}: cero este mes. Separá antes de gastar.`,
+    });
+  }
+
+  // 7. Efectivo que no se anotó
   if (ctx.efectivoSinAnotar && ctx.efectivoSinAnotar >= 1000) {
     const monto = `$\u00A0${Math.round(ctx.efectivoSinAnotar).toLocaleString('es-AR')}`;
     decir('cash', {
@@ -135,7 +146,7 @@ export function consejos(ctx: Contexto): Consejo[] {
     });
   }
 
-  // 7. Muchas salidas a comer esta semana
+  // 8. Muchas salidas a comer esta semana
   const salidas = ctx.gastos.filter((g) => {
     if (g.categoria !== 'Comida y salidas') return false;
     const [a, m, d] = g.fecha_compra.split('-').map(Number);

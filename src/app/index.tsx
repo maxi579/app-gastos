@@ -21,6 +21,7 @@ import {
 } from '../lib/avisos';
 import { useDatos } from '../lib/contextoDatos';
 import type { GastoConMedio, Perfil } from '../lib/datos';
+import { aportadoEsteMes, hacerAportesAutomaticos, reservaPendiente } from '../lib/ahorros';
 import { balanceEfectivo } from '../lib/efectivo';
 import { anotarDebitos, fijosDelMes, pendienteDeFijos, totalMensualFijos } from '../lib/fijos';
 import { gastoUltimaSemana, presupuestoAutomatico, semanaInusual } from '../lib/patrones';
@@ -41,7 +42,7 @@ import { fechaDesdeTexto, prepararGasto, type ValoresGasto } from '../lib/gastos
 import { useIndicadores } from '../lib/indicadores';
 import { importarNotificaciones } from '../lib/notificaciones';
 import { registrarPush } from '../lib/push';
-import type { Categoria, Fijo, MedioPago, PagoFijo, Retiro, Sugerencia } from '../lib/tipos';
+import type { Aporte, Categoria, Fijo, MedioPago, Meta, PagoFijo, Retiro, Sugerencia } from '../lib/tipos';
 
 type Edicion = { gasto: GastoConMedio; valores: ValoresGasto };
 type SeccionDia = { titulo: string; total: number; data: GastoConMedio[] };
@@ -68,6 +69,8 @@ export default function Inicio() {
   const [pagos, setPagos] = useState<PagoFijo[]>([]);
   const [retiros, setRetiros] = useState<Retiro[]>([]);
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
+  const [metas, setMetas] = useState<Meta[]>([]);
+  const [aportes, setAportes] = useState<Aporte[]>([]);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -84,6 +87,14 @@ export default function Inicio() {
       if (anotados.length > 0) aviso(`Anoté ${anotados.join(', ')} (débito automático) ✓`);
       // Android: lo que detectó el lector de notificaciones pasa a "pagos para revisar"
       await importarNotificaciones(datos).catch(() => 0);
+      // Los ahorros automáticos del mes (el día que cobra) se separan solos
+      const listaMetas = await datos.metas.listar().catch(() => [] as Meta[]);
+      let listaAportes = await datos.aportes.listar().catch(() => [] as Aporte[]);
+      const separados = await hacerAportesAutomaticos(datos, listaMetas, listaAportes).catch(() => []);
+      if (separados.length > 0) {
+        aviso(`Separé el ahorro del mes para ${separados.join(', ')} 💪`);
+        listaAportes = await datos.aportes.listar().catch(() => listaAportes);
+      }
       const [todos, pagosActuales, listaRetiros, listaSugerencias] = await Promise.all([
         anotados.length > 0 ? datos.gastos() : Promise.resolve(gastosAntes),
         datos.pagosFijos.listar().catch(() => listaPagos),
@@ -98,6 +109,8 @@ export default function Inicio() {
       setPagos(pagosActuales);
       setRetiros(listaRetiros);
       setSugerencias(listaSugerencias.filter((s) => s.estado === 'pendiente'));
+      setMetas(listaMetas);
+      setAportes(listaAportes);
       setCargado(true);
       if (!datos.esDemo) {
         programarAvisosCierre(listaMedios).catch(() => {});
@@ -181,6 +194,10 @@ export default function Inicio() {
   const totalEsteMes = totalEnPesos(esteMes, dolarTarjeta) + fijosPendientes.total;
   const proximoMes = meses[1] ? totalEnPesos(meses[1], dolarTarjeta) : 0;
   const porcentaje = sueldo ? (totalEsteMes / sueldo) * 100 : null;
+  // "Págate primero": lo que falta separar este mes para los ahorros no cuenta como plata disponible
+  const reservaAhorro = reservaPendiente(metas, aportes, hoy);
+  const ahorroSinSeparar =
+    hoy.getDate() >= 20 ? metas.find((m) => m.ahorro_mensual && aportadoEsteMes(aportes, m.id, hoy) === 0)?.nombre : undefined;
   const colorEstado = colorSegunPorcentaje(porcentaje);
   const categorias = totalesPorCategoria(gastos, hoy);
   const maximoCategoria = categorias[0]?.total ?? 1;
@@ -205,6 +222,7 @@ export default function Inicio() {
         efectivoSinAnotar: efectivo.sinAnotar,
         presupuestoPasado: pasado ? { categoria: pasado.categoria, porcentaje: pasado.porcentaje } : undefined,
         semanaInusual: inusual ? { categoria: inusual.categoria, veces: inusual.estaSemana / inusual.normal } : undefined,
+        ahorroSinSeparar,
       })
     : [];
   // Fijos y el asistente ya están en la barra de abajo: acá van los accesos que más se usan del resto
@@ -216,7 +234,12 @@ export default function Inicio() {
       destino: '/efectivo' as Href,
     },
     { icono: 'calculator', titulo: '¿Cuánto me rinde?', detalle: 'Plazo fijo y billeteras', destino: '/rendimiento' as Href },
-    { icono: 'calendar', titulo: 'Cuotas', detalle: 'Mes por mes', destino: '/cuotas' as Href },
+    {
+      icono: 'flag',
+      titulo: 'Ahorros',
+      detalle: metas.length > 0 ? `${metas.length} ${metas.length === 1 ? 'meta' : 'metas'}` : 'Juntá para algo',
+      destino: '/ahorros' as Href,
+    },
     { icono: 'bag-check', titulo: '¿Lo compro?', detalle: 'Antes de comprar', destino: '/comprar' as Href },
   ];
   const pasos = [
@@ -308,11 +331,14 @@ export default function Inicio() {
                     </View>
                     <View style={styles.heroFila}>
                       <Text style={styles.heroDato}>Es el {porcentaje.toFixed(0)}% de tu sueldo</Text>
-                      <Text style={styles.heroDato}>Te quedan {formatearMonto(Math.round(Math.max(sueldo! - totalEsteMes, 0)))}</Text>
+                      <Text style={styles.heroDato}>Te quedan {formatearMonto(Math.round(Math.max(sueldo! - totalEsteMes - reservaAhorro, 0)))}</Text>
                     </View>
                   </>
                 ) : (
                   <Text style={styles.heroPista}>Cargá tu sueldo en Ajustes para ver cuánto te queda.</Text>
+                )}
+                {porcentaje !== null && reservaAhorro > 0 && (
+                  <Text style={styles.heroReserva}>🔒 Ya separé {formatearMonto(Math.round(reservaAhorro))} para tus ahorros</Text>
                 )}
 
                 {proximoMes > 0 && (
@@ -603,6 +629,7 @@ const styles = StyleSheet.create({
   barraRelleno: { height: '100%', borderRadius: 5 },
   heroFila: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 10, flexWrap: 'wrap' },
   heroDato: { color: '#d1fae5', fontSize: 14, fontWeight: '600' },
+  heroReserva: { color: '#d1fae5', fontSize: 13, marginTop: 8 },
   heroPista: { color: '#a7f3d0', fontSize: 15, marginTop: 10 },
   heroProximo: {
     flexDirection: 'row',

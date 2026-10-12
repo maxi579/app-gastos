@@ -130,6 +130,7 @@ export default function Layout() {
           <Tabs.Screen name="resumen" options={{ href: null, title: 'Revisar resumen' }} />
           <Tabs.Screen name="efectivo" options={{ href: null, title: 'Efectivo' }} />
           <Tabs.Screen name="activos" options={{ href: null, title: 'Activos' }} />
+          <Tabs.Screen name="ahorros" options={{ href: null, title: 'Ahorros' }} />
           <Tabs.Screen name="rendimiento" options={{ href: null, title: '¿Cuánto me rinde?' }} />
           <Tabs.Screen name="revisar" options={{ href: null, title: 'Pagos para revisar' }} />
           <Tabs.Screen name="automatico" options={{ href: null, title: 'Anotar sin esfuerzo' }} />

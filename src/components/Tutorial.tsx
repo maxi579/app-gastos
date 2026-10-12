@@ -75,6 +75,14 @@ const RECORRIDOS = {
     { titulo: '¿Qué es el rendimiento "real"?', texto: 'Es lo que ganaste descontando la inflación. "+5% real" quiere decir que hoy podés comprar más que antes; "-5% real", que podés comprar menos aunque tengas más pesos.' },
     AYUDA,
   ],
+  ahorros: [
+    { titulo: 'Ahorros 🎯', texto: 'Acá anotás para qué estás juntando plata: unas vacaciones, un auto, un fondo para emergencias. Activos te dice dónde está tu plata; Ahorros, para qué es.' },
+    { objetivo: 'ahorros-total', titulo: 'Lo que tenés ahorrado', texto: 'Con los intereses incluidos. Lo que planeás separar cada mes lo reservo en Inicio, así no te lo gastás sin darte cuenta.' },
+    { objetivo: 'ahorros-emergencia', titulo: 'Tu fondo de emergencia', texto: 'Te sugiero cuánto tener guardado por si un mes no cobrás o surge algo: lo que se te va en 3 meses.' },
+    { titulo: 'Cada meta', texto: 'Tiene su barra de progreso y te dice cuánto separar por mes para llegar a tiempo. Tocá "Separar" cada vez que guardes plata, o elegí un día y lo separo solo.' },
+    { objetivo: 'ahorros-agregar', titulo: 'Creá una meta', texto: 'Ponele nombre, cuánto querés juntar y dónde la guardás. Si es en Mercado Pago o un plazo fijo, sumo los intereses solo.' },
+    AYUDA,
+  ],
   rendimiento: [
     { objetivo: 'rend-datos', titulo: 'Tu plata y el tiempo', texto: 'Poné cuánta plata tenés y por cuánto tiempo la querés dejar.' },
     { objetivo: 'rend-inflacion', titulo: 'Para no perder', texto: 'Esto es lo que vas a necesitar al final para comprar lo mismo que hoy, con la inflación de los últimos meses.' },
