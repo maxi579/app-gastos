@@ -18,12 +18,14 @@ import {
   type BancoPlazoFijo,
 } from '../lib/rendimientos';
 import { useTasas } from '../lib/tasas';
+import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 
 const NOMBRE_PLAZO: Record<(typeof PLAZOS)[number], string> = { 30: '1 mes', 60: '2 meses', 90: '3 meses', 180: '6 meses', 365: '1 año' };
 
 type Resultado = { clave: string; titulo: string; detalle: string; final: number; icono: keyof typeof Ionicons.glyphMap };
 
 export default function Rendimiento() {
+  const ayuda = useRecorridoSeccion('rendimiento');
   const { inflacionMensual } = useIndicadores();
   const { bancos, cargando, actualizado } = useTasas();
   const [montoTexto, setMontoTexto] = useState('500.000');
@@ -76,64 +78,70 @@ export default function Rendimiento() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
-        <Encabezado titulo="¿Cuánto me rinde?" subtitulo="Compará qué pasa con tu plata en cada opción" volver />
+        <Encabezado titulo="¿Cuánto me rinde?" subtitulo="Compará qué pasa con tu plata en cada opción" volver ayuda={ayuda} />
 
-        <Campo
-          etiqueta="¿Cuánta plata?"
-          value={montoTexto}
-          onChangeText={(t) => setMontoTexto(formatearEntradaMonto(t))}
-          keyboardType="decimal-pad"
-          placeholder="Ej: 500.000"
-        />
-        <Etiqueta>¿Por cuánto tiempo?</Etiqueta>
-        <View style={styles.chips}>
-          {PLAZOS.map((p) => (
-            <Chip key={p} etiqueta={NOMBRE_PLAZO[p]} activo={dias === p} onPress={() => setDias(p)} />
-          ))}
-        </View>
+        <Objetivo id="rend-datos">
+          <Campo
+            etiqueta="¿Cuánta plata?"
+            value={montoTexto}
+            onChangeText={(t) => setMontoTexto(formatearEntradaMonto(t))}
+            keyboardType="decimal-pad"
+            placeholder="Ej: 500.000"
+          />
+          <Etiqueta>¿Por cuánto tiempo?</Etiqueta>
+          <View style={styles.chips}>
+            {PLAZOS.map((p) => (
+              <Chip key={p} etiqueta={NOMBRE_PLAZO[p]} activo={dias === p} onPress={() => setDias(p)} />
+            ))}
+          </View>
+        </Objetivo>
 
         {valido && (
-          <View style={styles.inflacion}>
-            <Ionicons name="trending-up" size={18} color={colores.advertencia} />
-            <Text style={styles.textoInflacion}>
-              Para no perder contra la inflación, en {NOMBRE_PLAZO[dias]} tendrías que tener{' '}
-              <Text style={{ fontWeight: '700' }}>{formatearMonto(Math.round(paraNoPerder))}</Text> (estimado con la inflación de los últimos meses).
-            </Text>
-          </View>
+          <Objetivo id="rend-inflacion">
+            <View style={styles.inflacion}>
+              <Ionicons name="trending-up" size={18} color={colores.advertencia} />
+              <Text style={styles.textoInflacion}>
+                Para no perder contra la inflación, en {NOMBRE_PLAZO[dias]} tendrías que tener{' '}
+                <Text style={{ fontWeight: '700' }}>{formatearMonto(Math.round(paraNoPerder))}</Text> (estimado con la inflación de los últimos meses).
+              </Text>
+            </View>
+          </Objetivo>
         )}
 
-        {cargando ? (
-          <View style={styles.cargando}>
-            <ActivityIndicator color={colores.primario} />
-            <Text style={styles.detalle}>Buscando las tasas de hoy...</Text>
-          </View>
-        ) : (
-          valido &&
-          resultados.map((r) => {
-            const ganancia = r.final - monto;
-            const real = r.final / paraNoPerder - 1;
-            return (
-              <View key={r.clave} style={styles.resultado}>
-                <View style={styles.icono}>
-                  <Ionicons name={r.icono} size={20} color={colores.primario} />
+        <Objetivo id="rend-resultados">
+          {cargando ? (
+            <View style={styles.cargando}>
+              <ActivityIndicator color={colores.primario} />
+              <Text style={styles.detalle}>Buscando las tasas de hoy...</Text>
+            </View>
+          ) : (
+            valido &&
+            resultados.map((r) => {
+              const ganancia = r.final - monto;
+              const real = r.final / paraNoPerder - 1;
+              return (
+                <View key={r.clave} style={styles.resultado}>
+                  <View style={styles.icono}>
+                    <Ionicons name={r.icono} size={20} color={colores.primario} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.titulo}>{r.titulo}</Text>
+                    <Text style={styles.detalle}>{r.detalle}</Text>
+                    <Text style={[styles.real, { color: Math.abs(real) < 0.001 ? colores.advertencia : real > 0 ? colores.primario : colores.peligro }]}>
+                      {Math.abs(real) < 0.001
+                        ? 'Empata con la inflación'
+                        : `${real > 0 ? 'Le gana a la inflación' : 'Pierde contra la inflación'} (${formatearPorcentaje(real)})`}
+                    </Text>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <Text style={styles.final}>{formatearMonto(Math.round(r.final))}</Text>
+                    <Text style={styles.ganancia}>{ganancia > 0 ? `+${formatearMonto(Math.round(ganancia))}` : 'sin ganancia'}</Text>
+                  </View>
                 </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.titulo}>{r.titulo}</Text>
-                  <Text style={styles.detalle}>{r.detalle}</Text>
-                  <Text style={[styles.real, { color: Math.abs(real) < 0.001 ? colores.advertencia : real > 0 ? colores.primario : colores.peligro }]}>
-                    {Math.abs(real) < 0.001
-                      ? 'Empata con la inflación'
-                      : `${real > 0 ? 'Le gana a la inflación' : 'Pierde contra la inflación'} (${formatearPorcentaje(real)})`}
-                  </Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={styles.final}>{formatearMonto(Math.round(r.final))}</Text>
-                  <Text style={styles.ganancia}>{ganancia > 0 ? `+${formatearMonto(Math.round(ganancia))}` : 'sin ganancia'}</Text>
-                </View>
-              </View>
-            );
-          })
-        )}
+              );
+            })
+          )}
+        </Objetivo>
 
         {!cargando && bancos.length === 0 && (
           <Text style={styles.aviso}>No pude traer las tasas de los bancos (¿hay internet?). Probá de nuevo en un rato.</Text>

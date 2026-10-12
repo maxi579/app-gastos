@@ -12,6 +12,7 @@ import { deudaPendiente, formatearDia, formatearFecha, formatearMonto } from '..
 import { fechaParaMostrar, formatearEntradaMonto, leerFecha, leerMonto, montoATexto } from '../lib/formato';
 import { useIndicadores } from '../lib/indicadores';
 import type { Activo, GastoGuardado, TipoActivo } from '../lib/tipos';
+import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 
 type Valores = {
   nombre: string;
@@ -80,6 +81,7 @@ function preparar(v: Valores): { error: string } | { fila: FilaActivo } {
 }
 
 export default function Activos() {
+  const ayuda = useRecorridoSeccion('activos');
   const datos = useDatos();
   const aviso = useAviso();
   const indicadores = useIndicadores();
@@ -154,32 +156,36 @@ export default function Activos() {
         contentContainerStyle={styles.contenido}
         refreshControl={<RefreshControl refreshing={cargando} onRefresh={cargar} tintColor={colores.primario} />}
       >
-        <Encabezado titulo="Activos" subtitulo="Lo que tenés, cuánto vale hoy y cuánto rindió" volver />
+        <Encabezado titulo="Activos" subtitulo="Lo que tenés, cuánto vale hoy y cuánto rindió" volver ayuda={ayuda} />
 
-        <View style={styles.patrimonio}>
-          <Text style={styles.etiqueta}>Tu patrimonio</Text>
-          <Text style={[styles.monto, patrimonio < 0 && { color: colores.peligro }]}>{formatearMonto(Math.round(patrimonio))}</Text>
-          <View style={styles.filaDato}>
-            <Text style={styles.dato}>Lo que tenés</Text>
-            <Text style={styles.dato}>{formatearMonto(Math.round(totalActivos))}</Text>
+        <Objetivo id="activos-patrimonio">
+          <View style={styles.patrimonio}>
+            <Text style={styles.etiqueta}>Tu patrimonio</Text>
+            <Text style={[styles.monto, patrimonio < 0 && { color: colores.peligro }]}>{formatearMonto(Math.round(patrimonio))}</Text>
+            <View style={styles.filaDato}>
+              <Text style={styles.dato}>Lo que tenés</Text>
+              <Text style={styles.dato}>{formatearMonto(Math.round(totalActivos))}</Text>
+            </View>
+            <View style={styles.filaDato}>
+              <Text style={styles.dato}>Lo que debés en cuotas</Text>
+              <Text style={styles.dato}>− {formatearMonto(Math.round(deuda))}</Text>
+            </View>
+            {indicadores.dolarBlue && (
+              <Text style={styles.fuente}>Dólares valuados al blue compra: {formatearMonto(indicadores.dolarBlue)}</Text>
+            )}
           </View>
-          <View style={styles.filaDato}>
-            <Text style={styles.dato}>Lo que debés en cuotas</Text>
-            <Text style={styles.dato}>− {formatearMonto(Math.round(deuda))}</Text>
-          </View>
-          {indicadores.dolarBlue && (
-            <Text style={styles.fuente}>Dólares valuados al blue compra: {formatearMonto(indicadores.dolarBlue)}</Text>
-          )}
-        </View>
+        </Objetivo>
 
-        <Pressable style={({ pressed }) => [styles.calculadora, pressed && { opacity: 0.8 }]} onPress={() => router.push('/rendimiento')}>
-          <Ionicons name="calculator" size={22} color={colores.primario} />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.nombre}>¿Cuánto me rinde?</Text>
-            <Text style={styles.detalle}>Compará plazo fijo, billeteras y la inflación con tu plata</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />
-        </Pressable>
+        <Objetivo id="activos-calculadora">
+          <Pressable style={({ pressed }) => [styles.calculadora, pressed && { opacity: 0.8 }]} onPress={() => router.push('/rendimiento')}>
+            <Ionicons name="calculator" size={22} color={colores.primario} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.nombre}>¿Cuánto me rinde?</Text>
+              <Text style={styles.detalle}>Compará plazo fijo, billeteras y la inflación con tu plata</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />
+          </Pressable>
+        </Objetivo>
 
         <Text style={[tipografia.seccion, styles.seccion]}>Lo que tenés</Text>
         {valuados.length === 0 && (
@@ -192,16 +198,18 @@ export default function Activos() {
           <TarjetaActivo key={activo.id} activo={activo} valuacion={valuacion} onPress={() => setEditando({ id: activo.id, valores: valoresDesde(activo) })} />
         ))}
 
-        <Pressable
-          style={({ pressed }) => [styles.botonAgregar, pressed && { opacity: 0.7 }]}
-          onPress={() => {
-            setError(null);
-            setEditando({ id: null, valores: valoresVacios() });
-          }}
-        >
-          <Ionicons name="add" size={20} color={colores.primario} />
-          <Text style={styles.textoAgregar}>Agregar activo</Text>
-        </Pressable>
+        <Objetivo id="activos-agregar">
+          <Pressable
+            style={({ pressed }) => [styles.botonAgregar, pressed && { opacity: 0.7 }]}
+            onPress={() => {
+              setError(null);
+              setEditando({ id: null, valores: valoresVacios() });
+            }}
+          >
+            <Ionicons name="add" size={20} color={colores.primario} />
+            <Text style={styles.textoAgregar}>Agregar activo</Text>
+          </Pressable>
+        </Objetivo>
 
         <Text style={styles.aclaracion}>
           Son cálculos con los datos que cargaste y cotizaciones públicas (DolarApi, INDEC). El rendimiento “real” descuenta la inflación desde

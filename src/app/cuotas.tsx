@@ -11,8 +11,10 @@ import { useDatos } from '../lib/contextoDatos';
 import type { GastoConMedio } from '../lib/datos';
 import { deudaPendiente, diaDeLibertad, formatearMes, formatearMonto, proyectarCuotas, totalEnPesos, type MesProyectado } from '../lib/finanzas';
 import { useIndicadores } from '../lib/indicadores';
+import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 
 export default function Cuotas() {
+  const ayuda = useRecorridoSeccion('cuotas');
   const datos = useDatos();
   const aviso = useAviso();
   const { dolarTarjeta, inflacionMensual } = useIndicadores();
@@ -48,31 +50,33 @@ export default function Cuotas() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido}>
-      <Encabezado titulo="Cuotas" subtitulo="Lo que ya tenés que pagar, mes por mes" volver />
+      <Encabezado titulo="Cuotas" subtitulo="Lo que ya tenés que pagar, mes por mes" volver ayuda={ayuda} />
 
-      <View style={styles.resumen}>
-        <Text style={styles.etiqueta}>Este mes tenés que pagar</Text>
-        <Text style={styles.montoGrande}>{formatearMonto(Math.round(mesActual.ars))}</Text>
-        {mesActual.usd > 0 && (
-          <Text style={styles.dolares}>
-            y {formatearMonto(mesActual.usd, 'USD')}
-            {dolarTarjeta ? ` (unos ${formatearMonto(Math.round(mesActual.usd * dolarTarjeta))} al dólar tarjeta)` : ''}
-          </Text>
-        )}
-
-        {porcentaje !== null ? (
-          <>
-            <View style={styles.barraFondo}>
-              <View style={[styles.barraRelleno, { width: `${Math.min(porcentaje, 100)}%`, backgroundColor: colorEstado }]} />
-            </View>
-            <Text style={[styles.porcentaje, { color: colorEstado }]}>
-              Es el {porcentaje.toFixed(0)}% de tu sueldo · te quedan {formatearMonto(Math.round(Math.max(sueldo! - totalMes(mesActual), 0)))}
+      <Objetivo id="cuotas-resumen">
+        <View style={styles.resumen}>
+          <Text style={styles.etiqueta}>Este mes tenés que pagar</Text>
+          <Text style={styles.montoGrande}>{formatearMonto(Math.round(mesActual.ars))}</Text>
+          {mesActual.usd > 0 && (
+            <Text style={styles.dolares}>
+              y {formatearMonto(mesActual.usd, 'USD')}
+              {dolarTarjeta ? ` (unos ${formatearMonto(Math.round(mesActual.usd * dolarTarjeta))} al dólar tarjeta)` : ''}
             </Text>
-          </>
-        ) : (
-          <Text style={styles.aviso}>Cargá tu sueldo en Ajustes para ver qué porcentaje representa.</Text>
-        )}
-      </View>
+          )}
+
+          {porcentaje !== null ? (
+            <>
+              <View style={styles.barraFondo}>
+                <View style={[styles.barraRelleno, { width: `${Math.min(porcentaje, 100)}%`, backgroundColor: colorEstado }]} />
+              </View>
+              <Text style={[styles.porcentaje, { color: colorEstado }]}>
+                Es el {porcentaje.toFixed(0)}% de tu sueldo · te quedan {formatearMonto(Math.round(Math.max(sueldo! - totalMes(mesActual), 0)))}
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.aviso}>Cargá tu sueldo en Ajustes para ver qué porcentaje representa.</Text>
+          )}
+        </View>
+      </Objetivo>
 
       <View style={styles.encabezadoGrafico}>
         <Text style={styles.seccion}>Próximos 6 meses</Text>

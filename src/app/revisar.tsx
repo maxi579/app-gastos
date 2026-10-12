@@ -14,6 +14,7 @@ import { categoriaAprendida } from '../lib/aprendizaje';
 import { interpretarGasto } from '../lib/interpretarGasto';
 import { importarNotificaciones } from '../lib/notificaciones';
 import type { GastoGuardado, MedioPago, Sugerencia } from '../lib/tipos';
+import { useRecorridoSeccion } from '../components/Tutorial';
 
 type Anotando = { sugerencia: Sugerencia; valores: ValoresGasto };
 
@@ -25,6 +26,7 @@ function medioDeLaFuente(fuente: string | null, medios: MedioPago[]) {
 }
 
 export default function Revisar() {
+  const ayuda = useRecorridoSeccion('revisar');
   const datos = useDatos();
   const aviso = useAviso();
   const [sugerencias, setSugerencias] = useState<Sugerencia[]>([]);
@@ -104,7 +106,7 @@ export default function Revisar() {
         contentContainerStyle={styles.contenido}
         refreshControl={<RefreshControl refreshing={cargando} onRefresh={cargar} tintColor={colores.primario} />}
       >
-        <Encabezado titulo="Pagos para revisar" subtitulo="Los encontré en tus mails o notificaciones" volver />
+        <Encabezado titulo="Pagos para revisar" subtitulo="Los encontré en tus mails o notificaciones" volver ayuda={ayuda} />
 
         {sugerencias.length === 0 && !cargando && (
           <View style={styles.vacio}>

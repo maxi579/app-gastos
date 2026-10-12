@@ -29,6 +29,7 @@ import {
 import { formatearEntradaMonto, leerMonto, montoATexto } from '../lib/formato';
 import { useIndicadores } from '../lib/indicadores';
 import type { Fijo, GastoGuardado, MedioPago, PagoFijo } from '../lib/tipos';
+import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 
 const CLAVE_DESCARTADOS = 'recurrentes-descartados';
 
@@ -44,6 +45,7 @@ type Formulario = { id: string | null; valores: ValoresFijo };
 type Pagando = { item: FijoDelMes; montoTexto: string };
 
 export default function Fijos() {
+  const ayuda = useRecorridoSeccion('fijos');
   const datos = useDatos();
   const aviso = useAviso();
   const { dolarTarjeta } = useIndicadores();
@@ -183,28 +185,30 @@ export default function Fijos() {
         contentContainerStyle={styles.contenido}
         refreshControl={<RefreshControl refreshing={cargando} onRefresh={cargar} tintColor={colores.primario} />}
       >
-        <Encabezado titulo="Fijos y suscripciones" subtitulo="Lo que pagás todos los meses, en un solo lugar" />
+        <Encabezado titulo="Fijos y suscripciones" subtitulo="Lo que pagás todos los meses, en un solo lugar" ayuda={ayuda} />
 
         {fijos.length > 0 && (
-          <View style={styles.resumen}>
-            <View style={styles.resumenFila}>
-              <Text style={styles.resumenEtiqueta}>Falta pagar este mes</Text>
-              <Text style={styles.resumenMonto}>{formatearMonto(Math.round(pendiente.total))}</Text>
+          <Objetivo id="fijos-resumen">
+            <View style={styles.resumen}>
+              <View style={styles.resumenFila}>
+                <Text style={styles.resumenEtiqueta}>Falta pagar este mes</Text>
+                <Text style={styles.resumenMonto}>{formatearMonto(Math.round(pendiente.total))}</Text>
+              </View>
+              {pendiente.sinMonto > 0 && (
+                <Text style={styles.resumenNota}>
+                  {pendiente.sinMonto === 1 ? '+ 1 factura que todavía no llegó' : `+ ${pendiente.sinMonto} facturas que todavía no llegaron`}
+                </Text>
+              )}
+              <View style={styles.separador} />
+              <Text style={styles.resumenDetalle}>Por mes se van {formatearMonto(Math.round(mensual.total))} en fijos</Text>
+              {mensual.cantidadSuscripciones > 0 && (
+                <Text style={styles.resumenDetalle}>
+                  📺 {mensual.cantidadSuscripciones} {mensual.cantidadSuscripciones === 1 ? 'suscripción' : 'suscripciones'}:{' '}
+                  {formatearMonto(Math.round(mensual.suscripciones))} por mes ({formatearMonto(Math.round(mensual.suscripciones * 12))} al año)
+                </Text>
+              )}
             </View>
-            {pendiente.sinMonto > 0 && (
-              <Text style={styles.resumenNota}>
-                {pendiente.sinMonto === 1 ? '+ 1 factura que todavía no llegó' : `+ ${pendiente.sinMonto} facturas que todavía no llegaron`}
-              </Text>
-            )}
-            <View style={styles.separador} />
-            <Text style={styles.resumenDetalle}>Por mes se van {formatearMonto(Math.round(mensual.total))} en fijos</Text>
-            {mensual.cantidadSuscripciones > 0 && (
-              <Text style={styles.resumenDetalle}>
-                📺 {mensual.cantidadSuscripciones} {mensual.cantidadSuscripciones === 1 ? 'suscripción' : 'suscripciones'}:{' '}
-                {formatearMonto(Math.round(mensual.suscripciones))} por mes ({formatearMonto(Math.round(mensual.suscripciones * 12))} al año)
-              </Text>
-            )}
-          </View>
+          </Objetivo>
         )}
 
         {recurrentes.slice(0, 3).map((r) => (

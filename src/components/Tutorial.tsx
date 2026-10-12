@@ -1,10 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { usePathname } from 'expo-router';
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useFocusEffect, usePathname } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { colores, radios } from '../constants/tema';
+import { Contexto, useTutorial, type Rect } from './Foco';
 import { Boton, Texto as Text } from './ui';
+
+export { Objetivo, useTutorial } from './Foco';
 
 // Recorrido guiado: oscurece la pantalla, ilumina un solo lugar y solo deja tocar ahí.
 //
@@ -21,7 +24,7 @@ type Paso = {
   avanzaEn?: string;
 };
 
-const PASOS: Paso[] = [
+const PRINCIPAL: Paso[] = [
   { titulo: '¡Hola! 👋', texto: 'Te muestro cómo usar Sorted en un minuto. Vas a ir tocando donde te indique.' },
   {
     objetivo: 'resumen-mes',
@@ -54,72 +57,103 @@ const PASOS: Paso[] = [
     titulo: 'Más herramientas',
     texto: 'Acá están tus cuotas, el efectivo, ¿Cuánto me rinde?, las formas de anotar sin esfuerzo y los ajustes.',
   },
-  { titulo: '¡Listo! 🎉', texto: 'Ya sabés lo principal. Si querés ver este recorrido de nuevo, está en Más.' },
+  { titulo: '¡Listo! 🎉', texto: 'Ya sabés lo principal. Si querés ver este recorrido de nuevo, está en Más. Y en cada sección, el ❓ te explica cómo funciona.' },
 ];
 
-const CLAVE_VISTO = 'tutorial-visto-v1';
+// El último paso de cada sección: dónde volver a verlo
+const AYUDA: Paso = { objetivo: 'boton-ayuda', titulo: '¿Te olvidaste algo?', texto: 'Tocá este ❓ cuando quieras y te lo vuelvo a mostrar.' };
+
+// Un recorrido corto por sección: se muestra la primera vez que se entra y con el ❓ del encabezado.
+// Si lo que se ilumina no entra en la pantalla, el mensaje aparece en el centro.
+const RECORRIDOS = {
+  principal: PRINCIPAL,
+  activos: [
+    { titulo: 'Activos 💼', texto: 'Acá anotás todo lo que tenés que vale plata: dólares, un plazo fijo, la plata que rinde en Mercado Pago, un auto o un celular.' },
+    { objetivo: 'activos-patrimonio', titulo: 'Tu patrimonio', texto: 'Es lo que tenés menos lo que todavía debés en cuotas. La foto de cómo estás parado de verdad.' },
+    { objetivo: 'activos-calculadora', titulo: '¿Cuánto me rinde?', texto: 'Si tenés una plata y no sabés qué hacer con ella, acá comparás plazo fijo, billeteras e inflación.' },
+    { objetivo: 'activos-agregar', titulo: 'Agregar un activo', texto: 'Abajo de todo está "Agregar activo": elegís qué es, cuánto pusiste y cuándo. Los dólares, plazos fijos y cuentas se actualizan solos.' },
+    { titulo: '¿Qué es el rendimiento "real"?', texto: 'Es lo que ganaste descontando la inflación. "+5% real" quiere decir que hoy podés comprar más que antes; "-5% real", que podés comprar menos aunque tengas más pesos.' },
+    AYUDA,
+  ],
+  rendimiento: [
+    { objetivo: 'rend-datos', titulo: 'Tu plata y el tiempo', texto: 'Poné cuánta plata tenés y por cuánto tiempo la querés dejar.' },
+    { objetivo: 'rend-inflacion', titulo: 'Para no perder', texto: 'Esto es lo que vas a necesitar al final para comprar lo mismo que hoy, con la inflación de los últimos meses.' },
+    { objetivo: 'rend-resultados', titulo: 'Las opciones, lado a lado', texto: 'Plazo fijo con la mejor tasa del día y en tu banco, y dejarla quieta. En verde le gana a la inflación, en rojo pierde.' },
+    { titulo: 'Sumá tu billetera', texto: 'Más abajo podés elegir tu banco y poner la tasa que te paga Mercado Pago u otra app, para compararla también.' },
+    { titulo: 'Es una comparación', texto: 'Son cuentas con tasas públicas del Banco Central. No es un consejo: las tasas cambian, consultá con tu banco antes de decidir.' },
+    AYUDA,
+  ],
+  efectivo: [
+    { titulo: 'Efectivo 💵', texto: 'Para lo que pagás en mano: el kiosco, la verdulería, el colectivo. Son los gastos que más se olvidan.' },
+    { objetivo: 'ef-billetera', titulo: 'Contá tu billetera', texto: 'Cada tanto contá la plata que tenés. La próxima vez que cuentes, te digo cuánto gastaste aunque no te acuerdes en qué. Si sacás del cajero, avisame acá.' },
+    { objetivo: 'ef-rapidos', titulo: 'Anotar en dos toques', texto: 'Tocá un botón, poné el monto y listo.' },
+    { titulo: 'Te lo recuerdo', texto: 'Más abajo podés activar un aviso para contar la billetera todos los días o los domingos.' },
+    AYUDA,
+  ],
+  cuotas: [
+    { titulo: 'Cuotas 📅', texto: 'Acá ves, mes por mes, cuánto vas a pagar por lo que ya compraste en cuotas.' },
+    { objetivo: 'cuotas-resumen', titulo: 'Lo que ya está comprometido', texto: 'Cada compra cae en el resumen que corresponde según el cierre de tu tarjeta. La app lo calcula sola.' },
+    { titulo: 'Tu día de libertad', texto: 'Es el mes en que terminás de pagar todas las cuotas. Cada compra nueva en cuotas lo puede correr para adelante.' },
+    AYUDA,
+  ],
+  comprar: [
+    { titulo: '¿Lo compro? 🛍️', texto: 'Antes de comprar algo, te digo si te conviene según tu sueldo y lo que ya tenés comprometido.' },
+    { objetivo: 'comprar-datos', titulo: 'Contame la compra', texto: 'Poné el precio, en cuántas cuotas y con qué tarjeta. Te respondo "sí", "con cuidado" o "mejor no".' },
+    { titulo: '¿Contado o cuotas?', texto: 'También te muestro cuánto valen las cuotas en plata de hoy, con la inflación, y con qué tarjeta conviene pagar.' },
+    AYUDA,
+  ],
+  automatico: [
+    { titulo: 'Anotar sin esfuerzo ⚡', texto: 'Formas de que los gastos se anoten casi solos. Activá las que te sirvan.' },
+    { objetivo: 'auto-voz', titulo: 'Con la voz', texto: 'En iPhone, armás una vez un atajo y después le decís a Siri "café 3500 con mercado pago".' },
+    { objetivo: 'auto-pagos', titulo: 'Pagos que llegan solos', texto: 'Reenviá los mails de pagos de Mercado Pago y tu banco, o en Android dejame leer las notificaciones de pagos. Te pregunto antes de anotar.' },
+    AYUDA,
+  ],
+  revisar: [
+    { titulo: 'Pagos para revisar 📬', texto: 'Acá aparecen los pagos que encontré solo en tus mails o notificaciones.' },
+    { titulo: 'Vos decidís', texto: 'Tocá "Anotar" para guardarlo (podés cambiarlo antes) o "No es un gasto" para descartarlo.' },
+    AYUDA,
+  ],
+  resumen: [
+    { titulo: 'Revisar el resumen 📄', texto: 'Subí el PDF del resumen de tu tarjeta. Una IA lo lee y lo compara con lo que ya anotaste.' },
+    { objetivo: 'resumen-subir', titulo: 'Solo lo que falta', texto: 'Te muestro únicamente lo que te olvidaste de anotar, y lo agregás con un toque. Lo que ya estaba no se duplica.' },
+    AYUDA,
+  ],
+  fijos: [
+    { titulo: 'Fijos y suscripciones 🔁', texto: 'La luz, el gas, el alquiler, Netflix... Cargalos una vez y te olvidás.' },
+    { objetivo: 'fijos-resumen', titulo: 'Lo que falta pagar', texto: 'Cuánto te falta pagar este mes de tus fijos, y cuánto se te va por mes en suscripciones.' },
+    { titulo: 'Te aviso y te los anoto', texto: 'Te aviso un día antes de cada vencimiento. Los que se debitan solos (como Netflix) los anoto yo, y si cambian de precio los actualizo.' },
+    { titulo: 'Agregá uno', texto: 'Más abajo está "Agregar gasto fijo o suscripción". Y si anotás lo mismo varios meses, te propongo agregarlo.' },
+    AYUDA,
+  ],
+  ajustes: [
+    { objetivo: 'ajustes-sueldo', titulo: 'Tu sueldo', texto: 'Con tu sueldo te digo qué parte del mes ya está ocupada. Solo lo ves vos.' },
+    { objetivo: 'ajustes-tarjetas', titulo: 'Tus tarjetas', texto: 'Cargá el cierre y el vencimiento de cada tarjeta: así sé en qué mes cae cada cuota y cuál conviene usar hoy.' },
+    { titulo: 'Tono y avisos', texto: 'Más abajo elegís cómo te habla el asistente y qué recordatorios querés.' },
+    AYUDA,
+  ],
+} satisfies Record<string, Paso[]>;
+
+export type NombreRecorrido = keyof typeof RECORRIDOS;
+type EnCurso = { nombre: NombreRecorrido; paso: number };
+
+const claveVisto = (nombre: NombreRecorrido) => (nombre === 'principal' ? 'tutorial-visto-v1' : `recorrido-visto-${nombre}`);
+const marcarVisto = (nombre: NombreRecorrido) => AsyncStorage.setItem(claveVisto(nombre), 'si').catch(() => {});
+
 const MARGEN = 8;
-
-type Rect = { x: number; y: number; ancho: number; alto: number };
-
-type ContextoTutorial = {
-  activo: boolean;
-  /** Cambia en cada paso: los objetivos se vuelven a medir */
-  version: number;
-  objetivoActual: string | null;
-  registrar: (id: string, rect: Rect) => void;
-  empezar: () => void;
-};
-
-const Contexto = createContext<ContextoTutorial>({
-  activo: false,
-  version: 0,
-  objetivoActual: null,
-  registrar: () => {},
-  empezar: () => {},
-});
-
-export const useTutorial = () => useContext(Contexto);
-
-// Envuelve algo que el recorrido puede iluminar. Se mide solo cuando le toca.
-export function Objetivo({ id, children, estilo }: { id: string; children: ReactNode; estilo?: ViewStyle }) {
-  const { objetivoActual, version, registrar } = useTutorial();
-  const vista = useRef<View>(null);
-  const esElActual = objetivoActual === id;
-
-  const medir = useCallback(() => {
-    vista.current?.measureInWindow((x, y, ancho, alto) => {
-      if (ancho > 0 && alto > 0) registrar(id, { x, y, ancho, alto });
-    });
-  }, [id, registrar]);
-
-  useEffect(() => {
-    if (!esElActual) return;
-    // Esperamos a que terminen las animaciones de entrada de la pantalla
-    const temporizadores = [100, 450, 900].map((ms) => setTimeout(medir, ms));
-    return () => temporizadores.forEach(clearTimeout);
-  }, [esElActual, version, medir]);
-
-  return (
-    <View ref={vista} collapsable={false} style={estilo} onLayout={esElActual ? medir : undefined}>
-      {children}
-    </View>
-  );
-}
 
 export function ProveedorTutorial({ children, listo }: { children: ReactNode; listo: boolean }) {
   const ruta = usePathname();
-  const [paso, setPaso] = useState<number | null>(null);
+  const [enCurso, setEnCurso] = useState<EnCurso | null>(null);
   const [rects, setRects] = useState<Record<string, Rect>>({});
   const [version, setVersion] = useState(0);
 
-  // La primera vez que la persona llega a Inicio, arranca solo
+  // La primera vez que la persona llega a Inicio, arranca solo el recorrido principal
   useEffect(() => {
     if (!listo || ruta !== '/') return;
     let cancelado = false;
     const temporizador = setTimeout(async () => {
-      const visto = await AsyncStorage.getItem(CLAVE_VISTO).catch(() => 'si');
-      if (!visto && !cancelado) setPaso(0);
+      const visto = await AsyncStorage.getItem(claveVisto('principal')).catch(() => 'si');
+      if (!visto && !cancelado) setEnCurso((actual) => actual ?? { nombre: 'principal', paso: 0 });
     }, 1200);
     return () => {
       cancelado = true;
@@ -128,29 +162,33 @@ export function ProveedorTutorial({ children, listo }: { children: ReactNode; li
   }, [listo, ruta]);
 
   const terminar = useCallback(() => {
-    setPaso(null);
-    AsyncStorage.setItem(CLAVE_VISTO, 'si').catch(() => {});
+    setEnCurso((actual) => {
+      if (actual) marcarVisto(actual.nombre);
+      return null;
+    });
   }, []);
 
   const avanzar = useCallback(() => {
-    setPaso((actual) => {
-      if (actual === null) return null;
-      if (actual + 1 >= PASOS.length) {
-        AsyncStorage.setItem(CLAVE_VISTO, 'si').catch(() => {});
+    setEnCurso((actual) => {
+      if (!actual) return null;
+      if (actual.paso + 1 >= RECORRIDOS[actual.nombre].length) {
+        marcarVisto(actual.nombre);
         return null;
       }
-      return actual + 1;
+      return { ...actual, paso: actual.paso + 1 };
     });
     setVersion((v) => v + 1);
   }, []);
 
+  const pasos: Paso[] | null = enCurso ? RECORRIDOS[enCurso.nombre] : null;
+  const actual = enCurso && pasos ? pasos[enCurso.paso] : null;
+
   // Los pasos "tocar" avanzan cuando la persona llega a la pantalla que se le pidió
   // (se actualiza mientras se dibuja, como recomienda React para estado que depende de otro)
-  if (paso !== null && PASOS[paso].avanzaEn && ruta === PASOS[paso].avanzaEn) {
-    setPaso(paso + 1 >= PASOS.length ? null : paso + 1);
+  if (enCurso && pasos && actual?.avanzaEn && ruta === actual.avanzaEn) {
+    setEnCurso(enCurso.paso + 1 >= pasos.length ? null : { ...enCurso, paso: enCurso.paso + 1 });
     setVersion((v) => v + 1);
   }
-  const actual = paso === null ? null : PASOS[paso];
 
   const registrar = useCallback((id: string, rect: Rect) => {
     setRects((previos) => {
@@ -160,23 +198,26 @@ export function ProveedorTutorial({ children, listo }: { children: ReactNode; li
     });
   }, []);
 
-  const empezar = useCallback(() => {
-    setPaso(0);
+  const empezar = useCallback((nombre: string = 'principal') => {
+    if (!(nombre in RECORRIDOS)) return;
+    setRects({});
+    setEnCurso({ nombre: nombre as NombreRecorrido, paso: 0 });
     setVersion((v) => v + 1);
   }, []);
 
   const valor = useMemo(
-    () => ({ activo: paso !== null, version, objetivoActual: actual?.objetivo ?? null, registrar, empezar }),
-    [paso, version, actual, registrar, empezar]
+    () => ({ activo: enCurso !== null, version, objetivoActual: actual?.objetivo ?? null, registrar, empezar }),
+    [enCurso, version, actual, registrar, empezar]
   );
 
   return (
     <Contexto.Provider value={valor}>
       {children}
-      {actual && paso !== null && (
+      {actual && enCurso && pasos && (
         <Capa
           paso={actual}
-          numero={paso}
+          numero={enCurso.paso}
+          total={pasos.length}
           rect={actual.objetivo ? (rects[actual.objetivo] ?? null) : null}
           onSiguiente={avanzar}
           onSaltar={terminar}
@@ -186,23 +227,54 @@ export function ProveedorTutorial({ children, listo }: { children: ReactNode; li
   );
 }
 
+// En cada sección: const ayuda = useRecorridoSeccion('activos'); → <Encabezado ayuda={ayuda} />
+// La primera vez que la sección está en pantalla, arranca sola (si no hay otro recorrido en curso).
+export function useRecorridoSeccion(nombre: Exclude<NombreRecorrido, 'principal'>) {
+  const { activo, empezar } = useTutorial();
+  useFocusEffect(
+    useCallback(() => {
+      if (activo) return;
+      let cancelado = false;
+      const temporizador = setTimeout(() => {
+        AsyncStorage.getItem(claveVisto(nombre))
+          .then((visto) => !visto && !cancelado && empezar(nombre))
+          .catch(() => {});
+      }, 900);
+      return () => {
+        cancelado = true;
+        clearTimeout(temporizador);
+      };
+    }, [nombre, activo, empezar])
+  );
+  return useCallback(() => empezar(nombre), [empezar, nombre]);
+}
+
 // Un pedazo de la sombra oscura: no deja tocar lo que hay abajo
 function Bloque({ estilo }: { estilo: ViewStyle }) {
   return <Pressable style={[styles.sombra, estilo]} onPress={() => {}} accessible={false} />;
 }
 
-type PropsCapa = { paso: Paso; numero: number; rect: Rect | null; onSiguiente: () => void; onSaltar: () => void };
+type PropsCapa = { paso: Paso; numero: number; total: number; rect: Rect | null; onSiguiente: () => void; onSaltar: () => void };
 
-function Capa({ paso, numero, rect, onSiguiente, onSaltar }: PropsCapa) {
+function Capa({ paso, numero, total, rect: medido, onSiguiente, onSaltar }: PropsCapa) {
   const { width, height } = useWindowDimensions();
-  const esperandoObjetivo = !!paso.objetivo && !rect;
+  // Si lo que hay que iluminar quedó fuera de la pantalla (más abajo), mostramos el mensaje en el centro
+  const visible = medido && medido.y < height - 80 && medido.y + medido.alto > 40;
+  const rect = visible ? { ...medido, alto: Math.min(medido.alto, height - medido.y - 90) } : null;
+  // Si en 1,5 s no se pudo medir lo que hay que iluminar, el mensaje sale igual en el centro (nunca se traba)
+  const [sinPaciencia, setSinPaciencia] = useState<number | null>(null);
+  useEffect(() => {
+    const temporizador = setTimeout(() => setSinPaciencia(numero), 1500);
+    return () => clearTimeout(temporizador);
+  }, [numero]);
+  const esperandoObjetivo = !!paso.objetivo && !medido && sinPaciencia !== numero;
   const hueco = rect && {
     x: Math.max(rect.x - MARGEN, 0),
     y: Math.max(rect.y - MARGEN, 0),
     ancho: Math.min(rect.ancho + MARGEN * 2, width),
     alto: rect.alto + MARGEN * 2,
   };
-  const ultimo = numero === PASOS.length - 1;
+  const ultimo = numero === total - 1;
 
   // El mensaje va abajo de lo iluminado si está en la mitad de arriba, y arriba si no
   const globoAbajo = !hueco || hueco.y + hueco.alto / 2 < height / 2;
@@ -240,7 +312,7 @@ function Capa({ paso, numero, rect, onSiguiente, onSaltar }: PropsCapa) {
       {!esperandoObjetivo && (
         <Animated.View key={numero} entering={globoAbajo ? FadeInDown.springify() : FadeIn} style={[styles.globo, posicionGlobo]}>
           <Text style={styles.contador}>
-            {numero + 1} de {PASOS.length}
+            {numero + 1} de {total}
           </Text>
           <Text style={styles.titulo}>{paso.titulo}</Text>
           <Text style={styles.texto}>{paso.texto}</Text>

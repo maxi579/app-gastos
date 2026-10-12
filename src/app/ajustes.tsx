@@ -24,8 +24,10 @@ import { formatearEntradaMonto, leerMonto, montoATexto } from '../lib/formato';
 import { mesDeInflacion, useIndicadores } from '../lib/indicadores';
 import { soloDemo } from '../lib/supabase';
 import type { MedioPago, Tono } from '../lib/tipos';
+import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 
 export default function Ajustes() {
+  const ayuda = useRecorridoSeccion('ajustes');
   const datos = useDatos();
   const aviso = useAviso();
   const indicadores = useIndicadores();
@@ -140,28 +142,32 @@ export default function Ajustes() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
-      <Encabezado titulo="Ajustes" subtitulo="Tu sueldo, tus tarjetas y los avisos" volver />
+      <Encabezado titulo="Ajustes" subtitulo="Tu sueldo, tus tarjetas y los avisos" volver ayuda={ayuda} />
 
-      <Text style={styles.seccion}>¿Cuánto cobrás por mes?</Text>
-      <Text style={styles.pista}>Lo uso para decirte qué parte de tu sueldo ya está ocupada.</Text>
-      <View style={styles.filaSueldo}>
-        <TextInput
-          style={styles.inputSueldo}
-          value={sueldoTexto}
-          onChangeText={(v) => setSueldoTexto(formatearEntradaMonto(v))}
-          placeholder="Ej: 600.000"
-          keyboardType="number-pad"
-        />
-        <Pressable style={({ pressed }) => [styles.botonSueldo, pressed && { opacity: 0.8 }]} onPress={guardarSueldo}>
-          <Text style={styles.textoBotonSueldo}>Guardar</Text>
-        </Pressable>
-      </View>
+      <Objetivo id="ajustes-sueldo">
+        <Text style={styles.seccion}>¿Cuánto cobrás por mes?</Text>
+        <Text style={styles.pista}>Lo uso para decirte qué parte de tu sueldo ya está ocupada.</Text>
+        <View style={styles.filaSueldo}>
+          <TextInput
+            style={styles.inputSueldo}
+            value={sueldoTexto}
+            onChangeText={(v) => setSueldoTexto(formatearEntradaMonto(v))}
+            placeholder="Ej: 600.000"
+            keyboardType="number-pad"
+          />
+          <Pressable style={({ pressed }) => [styles.botonSueldo, pressed && { opacity: 0.8 }]} onPress={guardarSueldo}>
+            <Text style={styles.textoBotonSueldo}>Guardar</Text>
+          </Pressable>
+        </View>
+      </Objetivo>
 
-      <Text style={styles.seccion}>Tus tarjetas y billeteras</Text>
-      {medios.length > 0 && <Text style={styles.pista}>Tocá una para cambiarla.</Text>}
-      {medios.length === 0 && !mostrarFormulario && (
-        <Text style={styles.pista}>Agregá las tarjetas con las que pagás. Así sé cuándo vence cada cuota.</Text>
-      )}
+      <Objetivo id="ajustes-tarjetas">
+        <Text style={styles.seccion}>Tus tarjetas y billeteras</Text>
+        {medios.length > 0 && <Text style={styles.pista}>Tocá una para cambiarla.</Text>}
+        {medios.length === 0 && !mostrarFormulario && (
+          <Text style={styles.pista}>Agregá las tarjetas con las que pagás. Así sé cuándo vence cada cuota.</Text>
+        )}
+      </Objetivo>
 
       {medios.map((medio) =>
         editandoId === medio.id ? (

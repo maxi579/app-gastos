@@ -3,23 +3,29 @@ import GuiaSiri from '../components/GuiaSiri';
 import PagosAutomaticos from '../components/PagosAutomaticos';
 import { Encabezado, Texto as Text } from '../components/ui';
 import { colores } from '../constants/tema';
+import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 
 // Todo lo que sirve para anotar sin escribir: Siri, mails reenviados y notificaciones de billeteras
 export default function Automatico() {
+  const ayuda = useRecorridoSeccion('automatico');
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contenido}>
-      <Encabezado titulo="Anotar sin esfuerzo" subtitulo="Que los gastos se anoten casi solos" volver />
+      <Encabezado titulo="Anotar sin esfuerzo" subtitulo="Que los gastos se anoten casi solos" volver ayuda={ayuda} />
 
       <Text style={styles.seccion}>Con la voz</Text>
       {/* Siri y Atajos son de iPhone (en la web se muestra para la demo) */}
-      {Platform.OS !== 'android' ? (
-        <GuiaSiri />
-      ) : (
-        <Text style={styles.pista}>En Android, usá el lector de notificaciones de abajo: anota solo lo que pagás con billeteras.</Text>
-      )}
+      <Objetivo id="auto-voz">
+          {Platform.OS !== 'android' ? (
+            <GuiaSiri />
+          ) : (
+            <Text style={styles.pista}>En Android, usá el lector de notificaciones de abajo: anota solo lo que pagás con billeteras.</Text>
+          )}
+      </Objetivo>
 
       <Text style={[styles.seccion, styles.separada]}>Pagos que llegan solos</Text>
-      <PagosAutomaticos />
+      <Objetivo id="auto-pagos">
+        <PagosAutomaticos />
+      </Objetivo>
     </ScrollView>
   );
 }

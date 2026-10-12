@@ -20,6 +20,7 @@ import { formatearFecha, formatearMonto } from '../lib/finanzas';
 import { formatearEntradaMonto, leerMonto } from '../lib/formato';
 import { fechaDesdeTexto } from '../lib/gastos';
 import type { Categoria, Conteo, GastoGuardado, Retiro } from '../lib/tipos';
+import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 
 // Botones rápidos: un toque, el monto y listo
 const RAPIDOS: { nombre: string; categoria: Categoria }[] = [
@@ -38,6 +39,7 @@ type Carga =
   | { tipo: 'contar'; resultado: ResultadoConteo | null; actual: number };
 
 export default function Efectivo() {
+  const ayuda = useRecorridoSeccion('efectivo');
   const datos = useDatos();
   const aviso = useAviso();
   // El recordatorio abre esta pantalla con ?contar=si para ir directo a contar
@@ -193,30 +195,32 @@ export default function Efectivo() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={cargando} onRefresh={cargar} tintColor={colores.primario} />}
       >
-        <Encabezado titulo="Efectivo" subtitulo="Que no se te escape lo que pagás en mano" volver />
+        <Encabezado titulo="Efectivo" subtitulo="Que no se te escape lo que pagás en mano" volver ayuda={ayuda} />
 
-        <View style={styles.billetera}>
-          <View style={styles.filaTitulo}>
-            <Ionicons name="wallet" size={22} color={colores.primario} />
-            <Text style={styles.tituloBilletera}>Tu billetera</Text>
-          </View>
-          {billetera ? (
-            <>
-              <Text style={styles.etiqueta}>Según tus cuentas, deberías tener</Text>
-              <Text style={styles.monto}>{formatearMonto(Math.round(Math.max(billetera.esperado, 0)))}</Text>
-              <Text style={styles.detalle}>
-                La última vez que contaste tenías {formatearMonto(Number(billetera.ultimo.monto))} ({fechaCorta(formatearFecha(new Date(billetera.ultimo.creado_en)))}).
+        <Objetivo id="ef-billetera">
+          <View style={styles.billetera}>
+            <View style={styles.filaTitulo}>
+              <Ionicons name="wallet" size={22} color={colores.primario} />
+              <Text style={styles.tituloBilletera}>Tu billetera</Text>
+            </View>
+            {billetera ? (
+              <>
+                <Text style={styles.etiqueta}>Según tus cuentas, deberías tener</Text>
+                <Text style={styles.monto}>{formatearMonto(Math.round(Math.max(billetera.esperado, 0)))}</Text>
+                <Text style={styles.detalle}>
+                  La última vez que contaste tenías {formatearMonto(Number(billetera.ultimo.monto))} ({fechaCorta(formatearFecha(new Date(billetera.ultimo.creado_en)))}).
+                </Text>
+              </>
+            ) : (
+              <Text style={styles.explicacion}>
+                ¿Pagás en efectivo y te olvidás de anotar? Contá cuánta plata tenés en la billetera. La próxima vez que la cuentes, te digo cuánto
+                gastaste aunque no te acuerdes en qué.
               </Text>
-            </>
-          ) : (
-            <Text style={styles.explicacion}>
-              ¿Pagás en efectivo y te olvidás de anotar? Contá cuánta plata tenés en la billetera. La próxima vez que la cuentes, te digo cuánto
-              gastaste aunque no te acuerdes en qué.
-            </Text>
-          )}
-          <Boton titulo="Contar mi billetera" onPress={() => abrir({ tipo: 'contar', resultado: null, actual: 0 })} estilo={{ marginTop: 14 }} />
-          <Boton titulo="💵 Saqué plata del cajero" variante="secundario" onPress={() => abrir({ tipo: 'retiro' })} estilo={{ marginTop: 10 }} />
-        </View>
+            )}
+            <Boton titulo="Contar mi billetera" onPress={() => abrir({ tipo: 'contar', resultado: null, actual: 0 })} estilo={{ marginTop: 14 }} />
+            <Boton titulo="💵 Saqué plata del cajero" variante="secundario" onPress={() => abrir({ tipo: 'retiro' })} estilo={{ marginTop: 10 }} />
+          </View>
+        </Objetivo>
 
         {!billetera && balance.sinAnotar > 0 && (
           <Text style={styles.aviso}>
@@ -226,21 +230,23 @@ export default function Efectivo() {
         )}
 
         <Text style={[tipografia.seccion, styles.seccion]}>Anotar un gasto en efectivo</Text>
-        <View style={styles.rapidos}>
-          {RAPIDOS.map((r) => {
-            const { icono, color } = estiloCategoria(r.categoria);
-            return (
-              <Pressable
-                key={r.nombre}
-                style={({ pressed }) => [styles.rapido, pressed && { opacity: 0.7 }]}
-                onPress={() => abrir({ tipo: 'gasto', nombre: r.nombre, categoria: r.categoria })}
-              >
-                <Ionicons name={icono} size={22} color={color} />
-                <Text style={styles.textoRapido}>{r.nombre}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
+        <Objetivo id="ef-rapidos">
+          <View style={styles.rapidos}>
+            {RAPIDOS.map((r) => {
+              const { icono, color } = estiloCategoria(r.categoria);
+              return (
+                <Pressable
+                  key={r.nombre}
+                  style={({ pressed }) => [styles.rapido, pressed && { opacity: 0.7 }]}
+                  onPress={() => abrir({ tipo: 'gasto', nombre: r.nombre, categoria: r.categoria })}
+                >
+                  <Ionicons name={icono} size={22} color={color} />
+                  <Text style={styles.textoRapido}>{r.nombre}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Objetivo>
 
         {avisosDisponibles && (
           <View style={styles.tarjeta}>

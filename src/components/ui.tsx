@@ -18,6 +18,7 @@ import {
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colores, fuentes, radios } from '../constants/tema';
+import { Objetivo } from './Foco';
 
 const PressableAnimado = Animated.createAnimatedComponent(Pressable);
 
@@ -108,7 +109,8 @@ export function Tarjeta({ children, estilo }: { children: ReactNode; estilo?: Vi
 
 // Título grande de cada pantalla, con espacio para el notch del celular.
 // volver: muestra "← Volver" (para las pantallas que no tienen pestaña propia)
-export function Encabezado({ titulo, subtitulo, volver = false }: { titulo: string; subtitulo?: string; volver?: boolean }) {
+// ayuda: muestra un ❓ a la derecha del título que abre la explicación de la sección
+export function Encabezado({ titulo, subtitulo, volver = false, ayuda }: { titulo: string; subtitulo?: string; volver?: boolean; ayuda?: () => void }) {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ paddingTop: insets.top + 12, marginBottom: 18 }}>
@@ -123,7 +125,16 @@ export function Encabezado({ titulo, subtitulo, volver = false }: { titulo: stri
           <Texto style={styles.textoVolver}>Volver</Texto>
         </Pressable>
       )}
-      <Texto style={styles.tituloGrande}>{titulo}</Texto>
+      <View style={styles.filaTitulo}>
+        <Texto style={[styles.tituloGrande, { flex: 1 }]}>{titulo}</Texto>
+        {ayuda && (
+          <Objetivo id="boton-ayuda">
+            <Pressable onPress={ayuda} hitSlop={12} style={({ pressed }) => [styles.ayuda, pressed && styles.presionado]} accessibilityLabel="Cómo funciona esta sección">
+              <Ionicons name="help-circle-outline" size={28} color={colores.textoSecundario} />
+            </Pressable>
+          </Objetivo>
+        )}
+      </View>
       {subtitulo && <Texto style={styles.subtituloGrande}>{subtitulo}</Texto>}
     </View>
   );
@@ -163,6 +174,8 @@ const styles = StyleSheet.create({
     borderColor: colores.borde,
   },
   tarjeta: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, borderWidth: 1, borderColor: colores.borde },
+  filaTitulo: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  ayuda: { padding: 2 },
   volver: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', marginBottom: 8, marginLeft: -4 },
   textoVolver: { color: colores.primario, fontSize: 16, fontWeight: '600' },
   tituloGrande: { color: colores.texto, fontSize: 30, fontWeight: '800', letterSpacing: -0.8 },
