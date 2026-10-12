@@ -16,6 +16,7 @@ import { gastoUltimaSemana, presupuestoAutomatico, semanaInusual } from '../src/
 import { balanceEfectivo, compararConteo, saldoEsperado } from '../src/lib/efectivo';
 import { anotarDebitos, debitosParaAnotar, detectarRecurrentes, fijosDelMes, gastoDeFijo, pendienteDeFijos, totalMensualFijos, vencimientoDelMes } from '../src/lib/fijos';
 import { leerFecha } from '../src/lib/formato';
+import { accionesValidas, buscarPorNombre, describirAccion } from '../src/lib/accionesIA';
 import {
   leerBancos,
   mejorBanco,
@@ -475,5 +476,40 @@ describe('ahorros', () => {
     assert.equal(fondoEmergenciaSugerido(496_477, 0), 1_490_000);
     assert.equal(fondoEmergenciaSugerido(0, 300_000), 900_000);
     assert.equal(fondoEmergenciaSugerido(0, 0), null);
+  });
+});
+
+describe('acciones del asistente', () => {
+  it('descarta acciones inventadas o con datos raros', () => {
+    const validas = accionesValidas([
+      { tipo: 'anotar_gasto', descripcion: 'Café', monto: 3500, moneda: 'ARS', cuotas: 1, medio: '', categoria: 'Comida', fecha: '' },
+      { tipo: 'anotar_gasto', descripcion: 'Café', monto: -5, moneda: 'ARS', cuotas: 1, medio: '', categoria: 'Comida', fecha: '' },
+      { tipo: 'borrar_todo' },
+      { tipo: 'crear_fijo', descripcion: 'Netflix', monto: 12000, moneda: 'ARS', dia: 40, clase: 'suscripcion', debito_automatico: true, medio: '' },
+      { tipo: 'separar_ahorro', meta: 'Viaje', monto: -20000 },
+      { tipo: 'abrir_pantalla', pantalla: 'ahorros' },
+      { tipo: 'abrir_pantalla', pantalla: '../login' },
+      null,
+    ]);
+    assert.deepEqual(
+      validas.map((a) => a.tipo),
+      ['anotar_gasto', 'separar_ahorro', 'abrir_pantalla']
+    );
+    assert.deepEqual(accionesValidas('nada'), []);
+  });
+
+  it('encuentra por nombre aunque no sea exacto', () => {
+    const lista = [{ nombre: 'Visa Galicia' }, { nombre: 'Mercado Pago' }];
+    assert.equal(buscarPorNombre(lista, 'mercado pago', (x) => x.nombre)?.nombre, 'Mercado Pago');
+    assert.equal(buscarPorNombre(lista, 'visa', (x) => x.nombre)?.nombre, 'Visa Galicia');
+    assert.equal(buscarPorNombre(lista, 'Amex', (x) => x.nombre), null);
+    assert.equal(buscarPorNombre(lista, '', (x) => x.nombre), null);
+  });
+
+  it('describe la acción en una línea', () => {
+    const fijo = describirAccion({ tipo: 'crear_fijo', descripcion: 'Netflix', monto: 0, moneda: 'ARS', dia: 5, clase: 'suscripcion', debito_automatico: false, medio: '' });
+    assert.equal(fijo.titulo, 'Agregar suscripción');
+    assert.match(fijo.detalle, /monto variable/);
+    assert.equal(describirAccion({ tipo: 'separar_ahorro', meta: 'Viaje', monto: -1000 }).titulo, 'Sacar de tu ahorro');
   });
 });
