@@ -18,6 +18,7 @@ import { colores, fuentes } from '../constants/tema';
 import * as Linking from 'expo-linking';
 import { escucharToques } from '../lib/avisos';
 import { sesionDesdeLink, traeSesion } from '../lib/ingresoSocial';
+import { ProveedorBloqueo } from '../components/Bloqueo';
 import { ProveedorDatos } from '../lib/contextoDatos';
 import { fuenteSupabase } from '../lib/datos';
 import { crearFuenteDemo } from '../lib/demo';
@@ -136,10 +137,13 @@ export default function Layout() {
           <Tabs.Screen name="rendimiento" options={{ href: null, title: '¿Cuánto me rinde?' }} />
           <Tabs.Screen name="revisar" options={{ href: null, title: 'Pagos para revisar' }} />
           <Tabs.Screen name="automatico" options={{ href: null, title: 'Anotar sin esfuerzo' }} />
+          <Tabs.Screen name="privacidad" options={{ href: null, title: 'Privacidad' }} />
         </Tabs>
         </ProveedorTutorial>
       </ProveedorDatos>
     );
+    // Face ID / huella al abrir (solo con cuenta: el modo de prueba no tiene nada que proteger)
+    if (!modoDemo) contenido = <ProveedorBloqueo onSalir={() => fuente.salir()}>{contenido}</ProveedorBloqueo>;
   }
 
   return (

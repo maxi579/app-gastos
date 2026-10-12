@@ -26,13 +26,31 @@ export default function Root({ children }: PropsWithChildren) {
 
         <ScrollViewStyleReset />
         <style dangerouslySetInnerHTML={{ __html: estilos }} />
+        <script dangerouslySetInnerHTML={{ __html: altoEnIphone }} />
       </head>
       <body>{children}</body>
     </html>
   );
 }
 
+// Instalada en el iPhone, Safari le da a la página un alto 100% que no cuenta la barra de estado de arriba
+// y queda una franja vacía abajo de la barra de pestañas. Usamos el alto real de la pantalla.
+const altoEnIphone = `
+(function () {
+  if (window.navigator.standalone !== true) return;
+  function fijar() {
+    var vertical = window.innerHeight >= window.innerWidth;
+    var pantalla = vertical ? Math.max(screen.width, screen.height) : Math.min(screen.width, screen.height);
+    document.documentElement.style.setProperty('--alto-app', Math.max(pantalla, window.innerHeight) + 'px');
+  }
+  fijar();
+  window.addEventListener('resize', fijar);
+  window.addEventListener('orientationchange', fijar);
+})();
+`;
+
 const estilos = `
 html, body { background-color: #0b1120; }
+html, body, #root { height: var(--alto-app, 100%); }
 body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
 `;

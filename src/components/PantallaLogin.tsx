@@ -2,12 +2,14 @@ import { Ionicons } from '@expo/vector-icons';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { colores, degradados, radios } from '../constants/tema';
 import { appleDisponible, IngresoCancelado, ingresarConApple, ingresarConGoogle } from '../lib/ingresoSocial';
 import { supabase } from '../lib/supabase';
 import { LogoSorted } from './Logo';
+import { PoliticaPrivacidad } from './Privacidad';
 import { Boton, Entrada, Texto as Text } from './ui';
 
 const BENEFICIOS = [
@@ -27,6 +29,8 @@ export default function PantallaLogin({ onProbarDemo, errorInicial = null }: Pro
   const [error, setError] = useState<string | null>(null);
   const [conApple, setConApple] = useState(false);
   const [entrandoCon, setEntrandoCon] = useState<'google' | 'apple' | null>(null);
+  const [verPrivacidad, setVerPrivacidad] = useState(false);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     appleDisponible().then(setConApple).catch(() => setConApple(false));
@@ -152,9 +156,28 @@ export default function PantallaLogin({ onProbarDemo, errorInicial = null }: Pro
             </View>
 
             <Boton titulo="Probar con datos de ejemplo" variante="secundario" onPress={onProbarDemo} />
+
+            <Pressable onPress={() => setVerPrivacidad(true)} hitSlop={8} style={styles.privacidad}>
+              <Ionicons name="shield-checkmark-outline" size={15} color={colores.textoTenue} />
+              <Text style={styles.textoPrivacidad}>Cómo cuidamos tus datos</Text>
+            </Pressable>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={verPrivacidad} animationType="slide" onRequestClose={() => setVerPrivacidad(false)}>
+        <View style={[styles.modal, { paddingTop: insets.top + 12 }]}>
+          <View style={styles.barraModal}>
+            <Text style={styles.tituloModal}>Privacidad</Text>
+            <Pressable onPress={() => setVerPrivacidad(false)} hitSlop={12} accessibilityLabel="Cerrar">
+              <Ionicons name="close" size={26} color={colores.texto} />
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 40 }}>
+            <PoliticaPrivacidad />
+          </ScrollView>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -172,6 +195,11 @@ function traducirError(mensaje: string) {
 
 const styles = StyleSheet.create({
   fondo: { flex: 1 },
+  privacidad: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 22 },
+  textoPrivacidad: { color: colores.textoTenue, fontSize: 14 },
+  modal: { flex: 1, backgroundColor: colores.fondo },
+  barraModal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 8 },
+  tituloModal: { color: colores.texto, fontSize: 26, fontWeight: '800' },
   contenido: { flexGrow: 1, justifyContent: 'center', padding: 24, paddingVertical: 60, maxWidth: 480, width: '100%', alignSelf: 'center' },
   logo: { marginBottom: 28 },
   titulo: { fontSize: 36, fontWeight: '800', color: colores.texto, letterSpacing: -1.2 },

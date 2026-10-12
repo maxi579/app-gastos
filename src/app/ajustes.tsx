@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { useBloqueo } from '../components/Bloqueo';
 import FormularioMedioPago from '../components/FormularioMedioPago';
 import { useAviso } from '../components/Toast';
 import { confirmar, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
@@ -22,7 +23,7 @@ import { useDatos } from '../lib/contextoDatos';
 import { formatearFecha, formatearMonto } from '../lib/finanzas';
 import { formatearEntradaMonto, leerMonto, montoATexto } from '../lib/formato';
 import { mesDeInflacion, useIndicadores } from '../lib/indicadores';
-import { soloDemo } from '../lib/supabase';
+import { soloDemo, supabase } from '../lib/supabase';
 import type { MedioPago, Tono } from '../lib/tipos';
 import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 
@@ -38,6 +39,8 @@ export default function Ajustes() {
   const [tono, setTono] = useState<Tono>('directo');
   const [avisos, setAvisos] = useState(false);
   const [recordatorio, setRecordatorio] = useState(false);
+  const bloqueo = useBloqueo();
+  const [cambiandoBloqueo, setCambiandoBloqueo] = useState(false);
 
   useEffect(() => {
     avisosActivados().then(setAvisos);
@@ -107,6 +110,30 @@ export default function Ajustes() {
       aviso('Te aviso un día antes de cada cierre y vencimiento 🔔');
     }
     else aviso('No tengo permiso para avisarte. Activalo en la configuración del celular.', 'error');
+  }
+
+  async function cambiarBloqueo(activar: boolean) {
+    setCambiandoBloqueo(true);
+    try {
+      await bloqueo.cambiar(activar);
+      aviso(activar ? `Listo: Sorted te pide ${bloqueo.biometria?.nombre ?? 'Face ID'} al abrirla 🔒` : 'Bloqueo apagado', activar ? undefined : 'info');
+    } catch (e) {
+      aviso((e as Error).message, 'error');
+    }
+    setCambiandoBloqueo(false);
+  }
+
+  function borrarCuenta() {
+    confirmar(
+      'Borrar mi cuenta',
+      'Se borran tu cuenta y todos tus datos: gastos, cuotas, fijos, ahorros, todo. No se puede deshacer.',
+      'Borrar todo',
+      async () => {
+        const { error } = await supabase.functions.invoke('borrar-cuenta');
+        if (error) return aviso('No se pudo borrar la cuenta. Probá de nuevo en un rato.', 'error');
+        await datos.salir().catch(() => supabase.auth.signOut({ scope: 'local' }));
+      }
+    );
   }
 
   async function cambiarRecordatorio(activar: boolean) {
@@ -297,6 +324,40 @@ export default function Ajustes() {
         </>
       )}
 
+      <Text style={[styles.seccion, styles.separada]}>Privacidad y seguridad</Text>
+      <View style={styles.tarjeta}>
+        <View style={styles.iconoMedio}>
+          <Ionicons name={bloqueo.biometria?.icono ?? 'lock-closed'} size={20} color={colores.primario} />
+        </View>
+        <View style={styles.info}>
+          <Text style={styles.nombre}>Pedir {bloqueo.biometria?.nombre ?? 'Face ID o huella'} al abrir</Text>
+          <Text style={styles.detalle}>
+            {datos.esDemo
+              ? 'No disponible en el modo de prueba.'
+              : bloqueo.biometria?.disponible
+                ? 'Así nadie más puede abrir la app desde tu celular.'
+                : 'Tu celular no tiene Face ID ni huella configurados.'}
+          </Text>
+        </View>
+        <Switch
+          value={bloqueo.activo}
+          onValueChange={cambiarBloqueo}
+          disabled={datos.esDemo || cambiandoBloqueo || (!bloqueo.biometria?.disponible && !bloqueo.activo)}
+          trackColor={{ true: colores.primario, false: colores.borde }}
+          thumbColor={colores.texto}
+        />
+      </View>
+      <Pressable style={({ pressed }) => [styles.tarjeta, pressed && { opacity: 0.8 }]} onPress={() => router.push('/privacidad')}>
+        <View style={styles.iconoMedio}>
+          <Ionicons name="shield-checkmark" size={20} color={colores.primario} />
+        </View>
+        <View style={styles.info}>
+          <Text style={styles.nombre}>Cómo cuidamos tus datos</Text>
+          <Text style={styles.detalle}>Qué se guarda, qué no y dónde.</Text>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={colores.textoTenue} />
+      </Pressable>
+
       <Text style={[styles.seccion, styles.separada]}>Datos de hoy</Text>
       <View style={styles.datosHoy}>
         <Text style={styles.detalleGrande}>
@@ -314,6 +375,11 @@ export default function Ajustes() {
       <Pressable style={({ pressed }) => [styles.botonSalir, pressed && { opacity: 0.7 }]} onPress={() => datos.salir()}>
         <Text style={styles.textoSalir}>{soloDemo ? 'Volver a empezar la prueba' : datos.esDemo ? 'Salir del modo de prueba' : 'Cerrar sesión'}</Text>
       </Pressable>
+      {!datos.esDemo && (
+        <Pressable onPress={borrarCuenta} hitSlop={10} style={styles.borrarCuenta}>
+          <Text style={styles.textoBorrarCuenta}>Borrar mi cuenta</Text>
+        </Pressable>
+      )}
     </ScrollView>
   );
 }
@@ -380,5 +446,7 @@ const styles = StyleSheet.create({
   detalleGrande: { color: colores.textoChip, fontSize: 15 },
   fuente: { color: colores.textoTenue, fontSize: 12, marginTop: 4 },
   botonSalir: { marginTop: 40, alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colores.peligro },
+  borrarCuenta: { alignSelf: 'center', marginTop: 22, padding: 6 },
+  textoBorrarCuenta: { color: colores.textoTenue, fontSize: 14, textDecorationLine: 'underline' },
   textoSalir: { color: colores.peligro, fontWeight: 'bold', fontSize: 16 },
 });

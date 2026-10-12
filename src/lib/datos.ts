@@ -205,6 +205,8 @@ const CLAVES = {
   aportes: 'cache-aportes',
   // La conversación con el asistente con IA (la guarda la pantalla de chat)
   chat: 'chat-ia',
+  // El bloqueo con Face ID / huella es de este dispositivo y de esta cuenta
+  bloqueo: 'bloqueo-biometrico',
 };
 const SIN_CONEXION = 'No hay internet. Probá de nuevo cuando tengas conexión.';
 
