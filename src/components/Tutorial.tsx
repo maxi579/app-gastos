@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, usePathname } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, useWindowDimensions, View, type ViewStyle } from 'react-native';
 import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated';
 import { colores, radios } from '../constants/tema';
@@ -264,11 +264,19 @@ function Bloque({ estilo }: { estilo: ViewStyle }) {
 
 type PropsCapa = { paso: Paso; numero: number; total: number; rect: Rect | null; onSiguiente: () => void; onSaltar: () => void };
 
-function Capa({ paso, numero, total, rect: medido, onSiguiente, onSaltar }: PropsCapa) {
+function Capa({ paso, numero, total, rect: enPantalla, onSiguiente, onSaltar }: PropsCapa) {
   const { width, height } = useWindowDimensions();
+  // Los objetivos se miden respecto de la pantalla entera; la capa puede no empezar en (0, 0)
+  // (barra de estado, navegador, web instalada). Medimos dónde empieza y lo restamos: el recuadro cae justo.
+  const capa = useRef<View>(null);
+  const [origen, setOrigen] = useState({ x: 0, y: 0 });
+  const medirOrigen = useCallback(() => {
+    capa.current?.measureInWindow((x, y) => setOrigen((o) => (o.x === x && o.y === y ? o : { x, y })));
+  }, []);
+  const medido = enPantalla && { ...enPantalla, x: enPantalla.x - origen.x, y: enPantalla.y - origen.y };
   // Si lo que hay que iluminar quedó fuera de la pantalla (más abajo), mostramos el mensaje en el centro
-  const visible = medido && medido.y < height - 80 && medido.y + medido.alto > 40;
-  const rect = visible ? { ...medido, alto: Math.min(medido.alto, height - medido.y - 90) } : null;
+  const visible = medido && medido.y < height - 20 && medido.y + medido.alto > 20;
+  const rect = visible ? { ...medido, alto: Math.min(medido.alto, height - medido.y) } : null;
   // Si en 1,5 s no se pudo medir lo que hay que iluminar, el mensaje sale igual en el centro (nunca se traba)
   const [sinPaciencia, setSinPaciencia] = useState<number | null>(null);
   useEffect(() => {
@@ -276,11 +284,15 @@ function Capa({ paso, numero, total, rect: medido, onSiguiente, onSaltar }: Prop
     return () => clearTimeout(temporizador);
   }, [numero]);
   const esperandoObjetivo = !!paso.objetivo && !medido && sinPaciencia !== numero;
+  // Las pestañas de abajo: recuadro más grande, que abarque el ícono y el nombre (más fácil de ver y tocar)
+  const esPestana = paso.objetivo?.startsWith('pestana-');
+  const margen = esPestana ? 14 : MARGEN;
+  const extraAbajo = esPestana ? 16 : 0;
   const hueco = rect && {
-    x: Math.max(rect.x - MARGEN, 0),
-    y: Math.max(rect.y - MARGEN, 0),
-    ancho: Math.min(rect.ancho + MARGEN * 2, width),
-    alto: rect.alto + MARGEN * 2,
+    x: Math.max(rect.x - margen, 0),
+    y: Math.max(rect.y - margen, 0),
+    ancho: Math.min(rect.ancho + margen * 2, width),
+    alto: Math.min(rect.alto + margen * 2 + extraAbajo, height - Math.max(rect.y - margen, 0)),
   };
   const ultimo = numero === total - 1;
 
@@ -293,7 +305,7 @@ function Capa({ paso, numero, total, rect: medido, onSiguiente, onSaltar }: Prop
       : { bottom: Math.max(height - hueco.y + 12, 24) };
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View ref={capa} onLayout={medirOrigen} collapsable={false} style={StyleSheet.absoluteFill} pointerEvents="box-none">
       {!hueco ? (
         <Bloque estilo={{ top: 0, left: 0, right: 0, bottom: 0 }} />
       ) : (
