@@ -18,8 +18,10 @@ if (typeof window !== 'undefined') WebBrowser.maybeCompleteAuthSession();
 const CLAVE_PEDIDO = 'ingreso-google-pedido';
 const VIGENCIA_PEDIDO_MS = 10 * 60 * 1000;
 
-// sorted:// en la app instalada, exp://.../--/ en Expo Go, https://.../ en la web
-const direccionDeVuelta = () => Linking.createURL('/');
+// sorted:// en la app instalada, exp://.../--/ en Expo Go.
+// En la web, la carpeta donde está publicada (https://maxi579.github.io/sorted/app/): Linking.createURL('/')
+// devuelve solo el dominio, sin la carpeta, y Supabase no la acepta (manda a la dirección por defecto).
+const direccionDeVuelta = () => (Platform.OS === 'web' ? new URL('./', window.location.href).href : Linking.createURL('/'));
 
 export class IngresoCancelado extends Error {}
 
