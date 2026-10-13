@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   textoGoogle: { color: '#1f1f1f', fontSize: 16, fontWeight: '600' },
   botonApple: { width: '100%', height: 52, marginTop: 12 },
   input: {
-    backgroundColor: 'rgba(21, 29, 46, 0.85)',
+    backgroundColor: colores.superficie,
     color: colores.texto,
     borderRadius: radios.medio,
     padding: 16,

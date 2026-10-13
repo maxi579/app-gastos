@@ -225,11 +225,14 @@ export default function Ajustes() {
             <View style={styles.info}>
               <Text style={styles.nombre}>{medio.nombre}</Text>
               <Text style={styles.detalle}>
-                {medio.tipo === 'credito'
-                  ? `Crédito · cierra el ${medio.dia_cierre} · vence el ${medio.dia_vencimiento}`
-                  : 'Débito'}
-                {medio.banco ? ` · ${medio.banco}` : ''}
+                {medio.tipo === 'credito' ? 'Crédito' : 'Débito'}
+                {medio.banco && medio.banco !== medio.nombre ? ` de ${medio.banco}` : ''}
               </Text>
+              {medio.tipo === 'credito' && (
+                <Text style={styles.detalle}>
+                  Cierra el {medio.dia_cierre} y vence el {medio.dia_vencimiento}
+                </Text>
+              )}
             </View>
             <Pressable onPress={() => confirmarBorrado(medio)} hitSlop={12} accessibilityLabel={`Borrar ${medio.nombre}`}>
               <Ionicons name="trash-outline" size={22} color={colores.textoTenue} />
@@ -363,10 +366,10 @@ export default function Ajustes() {
       <Text style={[styles.seccion, styles.separada]}>Datos de hoy</Text>
       <View style={styles.datosHoy}>
         <Text style={styles.detalleGrande}>
-          💵 Dólar tarjeta: {indicadores.dolarTarjeta ? formatearMonto(indicadores.dolarTarjeta) : 'sin datos'}
+          Dólar tarjeta: {indicadores.dolarTarjeta ? formatearMonto(indicadores.dolarTarjeta) : 'sin datos'}
         </Text>
         <Text style={styles.detalleGrande}>
-          📈 Inflación{' '}
+          Inflación{' '}
           {indicadores.ultimaInflacion
             ? `de ${mesDeInflacion(indicadores.ultimaInflacion.mes)}: ${String(indicadores.ultimaInflacion.valor).replace('.', ',')}%`
             : ': sin datos (uso 2% por mes)'}
@@ -397,13 +400,13 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colores.superficie,
     color: colores.texto,
-    borderRadius: 14,
+    borderRadius: radios.grande,
     padding: 14,
     fontSize: 18,
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  botonSueldo: { backgroundColor: colores.primario, borderRadius: 14, paddingHorizontal: 20, justifyContent: 'center' },
+  botonSueldo: { backgroundColor: colores.primario, borderRadius: radios.medio, paddingHorizontal: 20, justifyContent: 'center' },
   textoBotonSueldo: { color: colores.sobrePrimario, fontWeight: 'bold', fontSize: 16 },
   tarjeta: {
     flexDirection: 'row',
@@ -415,7 +418,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  iconoMedio: { width: 40, height: 40, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  iconoMedio: { width: 40, height: 40, borderRadius: radios.chico, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, marginLeft: 12, marginRight: 8 },
   nombre: { color: colores.texto, fontSize: 16, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
@@ -427,7 +430,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: colores.primario,
-    borderRadius: 16,
+    borderRadius: radios.grande,
     padding: 16,
     marginTop: 4,
   },
@@ -447,7 +450,7 @@ const styles = StyleSheet.create({
   datosHoy: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 16, gap: 8, borderWidth: 1, borderColor: colores.borde },
   detalleGrande: { color: colores.textoChip, fontSize: 15 },
   fuente: { color: colores.textoTenue, fontSize: 12, marginTop: 4 },
-  botonSalir: { marginTop: 40, alignItems: 'center', padding: 14, borderRadius: 14, borderWidth: 1, borderColor: colores.peligro },
+  botonSalir: { marginTop: 40, alignItems: 'center', padding: 14, borderRadius: radios.medio, borderWidth: 1, borderColor: colores.peligro },
   borrarCuenta: { alignSelf: 'center', marginTop: 22, padding: 6 },
   textoBorrarCuenta: { color: colores.textoTenue, fontSize: 14, textDecorationLine: 'underline' },
   textoSalir: { color: colores.peligro, fontWeight: 'bold', fontSize: 16 },

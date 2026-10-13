@@ -262,7 +262,7 @@ export default function Inicio() {
         refreshControl={<RefreshControl refreshing={cargando} onRefresh={cargar} tintColor={colores.primario} />}
         ListHeaderComponent={
           <View>
-            <Encabezado titulo={`Hola${primerNombre ? `, ${primerNombre}` : ''} 👋`} subtitulo="Así venís este mes" />
+            <Encabezado titulo={`Hola${primerNombre ? `, ${primerNombre}` : ''}`} subtitulo="Así venís este mes" />
 
             {datos.esDemo && (
               <View style={styles.demo}>
@@ -338,7 +338,10 @@ export default function Inicio() {
                   <Text style={styles.heroPista}>Cargá tu sueldo en Ajustes para ver cuánto te queda.</Text>
                 )}
                 {porcentaje !== null && reservaAhorro > 0 && (
-                  <Text style={styles.heroReserva}>🔒 Ya separé {formatearMonto(Math.round(reservaAhorro))} para tus ahorros</Text>
+                  <View style={styles.heroReservaFila}>
+                    <Ionicons name="lock-closed" size={14} color={colores.primarioTextoClaro} />
+                    <Text style={styles.heroReserva}>Ya separé {formatearMonto(Math.round(reservaAhorro))} para tus ahorros</Text>
+                  </View>
                 )}
 
                 {proximoMes > 0 && (
@@ -398,7 +401,7 @@ export default function Inicio() {
                     <View style={{ flex: 1 }}>
                       <Text style={styles.utilEtiqueta}>Terminás de pagar tus cuotas en</Text>
                       <Text style={styles.utilValor}>{capitalizar(formatearMes(libertad, hoy))}</Text>
-                      <Text style={styles.utilDetalle}>Tu día de libertad 🏁</Text>
+                      <Text style={styles.utilDetalle}>Tu día de libertad</Text>
                     </View>
                     <Ionicons name="chevron-forward" size={18} color={colores.textoTenue} />
                   </Pressable>
@@ -576,14 +579,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(251, 191, 36, 0.1)',
-    borderColor: 'rgba(251, 191, 36, 0.35)',
+    backgroundColor: colores.advertenciaFondo,
+    borderColor: colores.advertenciaBorde,
     borderWidth: 1,
     borderRadius: radios.chico,
     padding: 12,
     marginBottom: 14,
   },
-  demoTexto: { color: '#fde68a', fontSize: 14, flex: 1 },
+  demoTexto: { color: colores.advertenciaTexto, fontSize: 14, flex: 1 },
   sugerencias: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -622,15 +625,16 @@ const styles = StyleSheet.create({
   pasoTexto: { color: colores.texto, fontSize: 16, flex: 1 },
   pasoHecho: { color: colores.textoTenue, textDecorationLine: 'line-through' },
   hero: { borderRadius: radios.enorme, padding: 22, overflow: 'hidden' },
-  heroEtiqueta: { color: '#a7f3d0', fontSize: 15, fontWeight: '600' },
+  heroEtiqueta: { color: colores.primarioTexto, fontSize: 15, fontWeight: '600' },
   heroMonto: { color: colores.texto, fontSize: 40, fontWeight: '800', marginTop: 6, letterSpacing: -1.5 },
-  heroDolares: { color: '#d1fae5', fontSize: 15, marginTop: 2 },
-  barraFondo: { height: 10, backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: 5, marginTop: 18, overflow: 'hidden' },
+  heroDolares: { color: colores.primarioTextoClaro, fontSize: 15, marginTop: 2 },
+  barraFondo: { height: 10, backgroundColor: colores.velo, borderRadius: 5, marginTop: 18, overflow: 'hidden' },
   barraRelleno: { height: '100%', borderRadius: 5 },
   heroFila: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginTop: 10, flexWrap: 'wrap' },
-  heroDato: { color: '#d1fae5', fontSize: 14, fontWeight: '600' },
-  heroReserva: { color: '#d1fae5', fontSize: 13, marginTop: 8 },
-  heroPista: { color: '#a7f3d0', fontSize: 15, marginTop: 10 },
+  heroDato: { color: colores.primarioTextoClaro, fontSize: 14, fontWeight: '600' },
+  heroReservaFila: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 },
+  heroReserva: { color: colores.primarioTextoClaro, fontSize: 13, flexShrink: 1 },
+  heroPista: { color: colores.primarioTexto, fontSize: 15, marginTop: 10 },
   heroProximo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -638,9 +642,9 @@ const styles = StyleSheet.create({
     marginTop: 18,
     paddingTop: 14,
     borderTopWidth: 1,
-    borderTopColor: 'rgba(167, 243, 208, 0.2)',
+    borderTopColor: colores.primarioBorde,
   },
-  heroProximoTexto: { color: '#d1fae5', fontSize: 14, flex: 1 },
+  heroProximoTexto: { color: colores.primarioTextoClaro, fontSize: 14, flex: 1 },
   asistente: {
     backgroundColor: colores.superficie,
     borderRadius: radios.grande,
@@ -666,7 +670,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
   },
   util: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  utilIcono: { width: 40, height: 40, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  utilIcono: { width: 40, height: 40, borderRadius: radios.chico, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   utilEtiqueta: { color: colores.textoSecundario, fontSize: 13 },
   utilValor: { color: colores.texto, fontSize: 17, fontWeight: '700', marginTop: 1 },
   utilDetalle: { color: colores.primario, fontSize: 13, marginTop: 2 },
@@ -682,7 +686,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   filaCategoria: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconoChico: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  iconoChico: { width: 32, height: 32, borderRadius: radios.chico, alignItems: 'center', justifyContent: 'center' },
   filaCategoriaTexto: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
   nombreCategoria: { color: colores.texto, fontSize: 15, fontWeight: '600' },
   montoCategoria: { color: colores.textoSecundario, fontSize: 15 },
@@ -699,13 +703,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colores.superficie,
-    borderRadius: 18,
+    borderRadius: radios.grande,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  icono: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  icono: { width: 44, height: 44, borderRadius: radios.chico, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, marginLeft: 12, marginRight: 8 },
   descripcion: { color: colores.texto, fontSize: 16, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },

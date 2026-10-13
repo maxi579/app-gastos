@@ -118,7 +118,7 @@ export default function Layout() {
               tabBarIcon: () => (
                 <Objetivo id="pestana-cargar">
                   <View style={styles.botonCargar}>
-                    <Ionicons name="add" size={28} color={colores.sobrePrimario} />
+                    <Ionicons name="add" size={26} color={colores.sobrePrimario} accessibilityLabel="Cargar gasto" />
                   </View>
                 </Objetivo>
               ),
@@ -179,18 +179,14 @@ const styles = StyleSheet.create({
       paddingBottom: 'max(6px, env(safe-area-inset-bottom))' as unknown as number,
     }),
   },
+  // Pastilla sólida, sin halo: se distingue por forma y color, no por brillo
   botonCargar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
+    width: 56,
+    height: 40,
+    borderRadius: 999,
     marginTop: 8,
     backgroundColor: colores.primario,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colores.primario,
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 8,
   },
 });

@@ -14,7 +14,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <title>Sorted</title>
         <meta name="description" content="Tu plata, en orden: cuotas, fijos, efectivo y un asistente que te avisa lo importante." />
-        <meta name="theme-color" content="#0b1120" />
+        <meta name="theme-color" content="#101614" />
 
         {/* Instalada en la pantalla de inicio */}
         <link rel="manifest" href="manifest.webmanifest" />
@@ -50,7 +50,8 @@ const altoEnIphone = `
 `;
 
 const estilos = `
-html, body { background-color: #0b1120; }
+html, body { background-color: #101614; color-scheme: dark; }
+::selection { background: rgba(95, 212, 154, 0.3); }
 html, body, #root { height: var(--alto-app, 100%); }
 body { overscroll-behavior: none; -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
 `;

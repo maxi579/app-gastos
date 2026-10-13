@@ -218,7 +218,7 @@ export default function Efectivo() {
               </Text>
             )}
             <Boton titulo="Contar mi billetera" onPress={() => abrir({ tipo: 'contar', resultado: null, actual: 0 })} estilo={{ marginTop: 14 }} />
-            <Boton titulo="💵 Saqué plata del cajero" variante="secundario" onPress={() => abrir({ tipo: 'retiro' })} estilo={{ marginTop: 10 }} />
+            <Boton titulo="Saqué plata del cajero" variante="secundario" onPress={() => abrir({ tipo: 'retiro' })} estilo={{ marginTop: 10 }} />
           </View>
         </Objetivo>
 
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 },
   nombre: { color: colores.texto, fontSize: 15, fontWeight: '600' },
   filaGasto: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, gap: 8 },
-  fondoModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
+  fondoModal: { flex: 1, backgroundColor: colores.velo, justifyContent: 'center', padding: 20 },
   cajaModal: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 20, borderWidth: 1, borderColor: colores.borde },
   tituloModal: { color: colores.texto, fontSize: 20, fontWeight: '700', lineHeight: 26 },
   ayudaModal: { color: colores.textoSecundario, fontSize: 14, marginTop: 6, lineHeight: 20 },

@@ -133,7 +133,7 @@ export default function Cuotas() {
         {mesElegido.etiqueta}: {formatearMonto(Math.round(mesElegido.ars))}
         {mesElegido.usd > 0 ? ` + ${formatearMonto(mesElegido.usd, 'USD')}` : ''}
       </Text>
-      {mesElegido.cuotas.length === 0 && <Text style={styles.aviso}>Nada comprometido este mes. 🎉</Text>}
+      {mesElegido.cuotas.length === 0 && <Text style={styles.aviso}>Nada comprometido este mes.</Text>}
       {mesElegido.cuotas.map((c, i) => (
         <Animated.View key={`${seleccionado}-${c.gastoId}-${i}`} entering={FadeIn.delay(i * 30)} style={styles.item}>
           <View style={styles.itemIcono}>
@@ -203,7 +203,7 @@ const styles = StyleSheet.create({
   columna: { flex: 1, alignItems: 'center' },
   valorBarra: { color: colores.textoTenue, fontSize: 11, fontWeight: '600', marginBottom: 6 },
   zonaBarra: { flex: 1, width: '100%', justifyContent: 'flex-end' },
-  barra: { backgroundColor: colores.superficieAlta, borderRadius: 10 },
+  barra: { backgroundColor: colores.superficieAlta, borderRadius: radios.chico },
   barraSeleccionada: { backgroundColor: colores.primario },
   mes: { color: colores.textoTenue, fontSize: 13, marginTop: 8 },
   mesSeleccionado: { color: colores.primario, fontWeight: 'bold' },
@@ -212,13 +212,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: colores.superficie,
-    borderRadius: 16,
+    borderRadius: radios.grande,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  itemIcono: { width: 36, height: 36, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  itemIcono: { width: 36, height: 36, borderRadius: radios.chico, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   itemNombre: { color: colores.texto, fontSize: 15, fontWeight: '600' },
   itemDetalle: { color: colores.textoSecundario, fontSize: 12, marginTop: 2 },
   progresoFila: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },

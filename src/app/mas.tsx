@@ -83,11 +83,11 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colores.fondo },
   contenido: { padding: 20, paddingTop: 0, paddingBottom: 40 },
   grupo: { marginBottom: 22 },
-  tituloGrupo: { color: colores.textoSecundario, fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
+  tituloGrupo: { color: colores.textoSecundario, fontSize: 15, fontWeight: '600', marginBottom: 8 },
   caja: { backgroundColor: colores.superficie, borderRadius: radios.grande, borderWidth: 1, borderColor: colores.borde, paddingHorizontal: 14 },
   opcion: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14 },
   conBorde: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colores.borde },
-  icono: { width: 40, height: 40, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  icono: { width: 40, height: 40, borderRadius: radios.chico, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   titulo: { color: colores.texto, fontSize: 16, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
   recorrido: {

@@ -303,12 +303,17 @@ export default function Ahorros() {
                         ? 'Separá algo este mes para ver cuándo llegás'
                         : 'Ahorro sin un monto fijo'}
               </Text>
+              {/* Dónde está guardada y cuánto rinde, arriba; el aporte del mes, abajo */}
               <Text style={styles.donde}>
                 {activo ? `${infoTipo(activo.tipo).emoji} Guardada en ${activo.nombre}` : '💵 Guardada sin intereses'}
-                {intereses > 1 ? ` · +${formatearMonto(Math.round(intereses))} de intereses` : ''}
-                {meta.ahorro_mensual ? ` · este mes: ${formatearMonto(Math.round(esteMes))} de ${formatearMonto(Number(meta.ahorro_mensual))}` : ''}
-                {meta.dia_aporte ? ` · se separa solo el ${meta.dia_aporte}` : ''}
+                {intereses > 1 && <Text style={styles.interesesMeta}>{`  +${formatearMonto(Math.round(intereses))} de intereses`}</Text>}
               </Text>
+              {meta.ahorro_mensual ? (
+                <Text style={styles.donde}>
+                  Este mes: {formatearMonto(Math.round(esteMes))} de {formatearMonto(Number(meta.ahorro_mensual))}
+                  {meta.dia_aporte ? `, se separa solo el ${meta.dia_aporte}` : ''}
+                </Text>
+              ) : null}
             </Pressable>
           );
         })}
@@ -484,8 +489,9 @@ const styles = StyleSheet.create({
   barraFondo: { height: 8, backgroundColor: colores.fondo, borderRadius: 4, overflow: 'hidden' },
   barra: { height: '100%', backgroundColor: colores.primario, borderRadius: 4 },
   pista: { color: colores.textoChip, fontSize: 14 },
-  donde: { color: colores.textoTenue, fontSize: 12, lineHeight: 17 },
-  botonChico: { backgroundColor: colores.primario, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12 },
+  donde: { color: colores.textoSecundario, fontSize: 13, lineHeight: 18, marginTop: 2 },
+  interesesMeta: { color: colores.primario, fontWeight: '600' },
+  botonChico: { backgroundColor: colores.primario, borderRadius: radios.chico, paddingVertical: 7, paddingHorizontal: 12 },
   textoBotonChico: { color: colores.sobrePrimario, fontWeight: '700', fontSize: 14 },
   botonAgregar: {
     flexDirection: 'row',
@@ -495,19 +501,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: colores.primario,
-    borderRadius: 16,
+    borderRadius: radios.grande,
     padding: 16,
     marginTop: 4,
   },
   textoAgregar: { color: colores.primario, fontWeight: '600', fontSize: 16 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  emoji: { width: 46, height: 46, borderRadius: 14, borderWidth: 1, borderColor: colores.borde, alignItems: 'center', justifyContent: 'center' },
+  emoji: { width: 46, height: 46, borderRadius: radios.chico, borderWidth: 1, borderColor: colores.borde, alignItems: 'center', justifyContent: 'center' },
   emojiActivo: { borderColor: colores.primario, backgroundColor: colores.primarioSuave },
   fila: { flexDirection: 'row', gap: 10 },
   ayuda: { color: colores.textoSecundario, fontSize: 13, marginTop: 8, lineHeight: 18 },
   error: { color: colores.error, marginTop: 14, fontSize: 15, textAlign: 'center' },
   botonFila: { flex: 1, marginTop: 20 },
-  fondoModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
+  fondoModal: { flex: 1, backgroundColor: colores.velo, justifyContent: 'center', padding: 20 },
   cajaModal: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 20, borderWidth: 1, borderColor: colores.borde },
   tituloModal: { color: colores.texto, fontSize: 20, fontWeight: '700' },
 });

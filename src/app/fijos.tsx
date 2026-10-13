@@ -34,7 +34,7 @@ import { Objetivo, useRecorridoSeccion } from '../components/Tutorial';
 const CLAVE_DESCARTADOS = 'recurrentes-descartados';
 
 const ESTADOS: Record<EstadoFijo, { texto: string; color: string }> = {
-  pagado: { texto: 'Pagado ✓', color: colores.primario },
+  pagado: { texto: 'Pagado', color: colores.primario },
   vencido: { texto: 'Vencido', color: colores.peligro },
   hoy: { texto: 'Vence hoy', color: colores.advertencia },
   proximo: { texto: 'Vence pronto', color: colores.advertencia },
@@ -203,7 +203,7 @@ export default function Fijos() {
               <Text style={styles.resumenDetalle}>Por mes se van {formatearMonto(Math.round(mensual.total))} en fijos</Text>
               {mensual.cantidadSuscripciones > 0 && (
                 <Text style={styles.resumenDetalle}>
-                  📺 {mensual.cantidadSuscripciones} {mensual.cantidadSuscripciones === 1 ? 'suscripción' : 'suscripciones'}:{' '}
+                  {mensual.cantidadSuscripciones} {mensual.cantidadSuscripciones === 1 ? 'suscripción' : 'suscripciones'}:{' '}
                   {formatearMonto(Math.round(mensual.suscripciones))} por mes ({formatearMonto(Math.round(mensual.suscripciones * 12))} al año)
                 </Text>
               )}
@@ -260,8 +260,12 @@ export default function Fijos() {
                 </Text>
                 <Text style={styles.detalle} numberOfLines={1}>
                   {fijo.debito_automatico ? 'Se debita' : 'Vence'} el {formatearDia(vence)}
-                  {medio ? ` · ${medio.nombre}` : ''}
                 </Text>
+                {medio && (
+                  <Text style={styles.detalle} numberOfLines={1}>
+                    {medio.nombre}
+                  </Text>
+                )}
                 <Text style={[styles.estado, { color: estilo.color }]}>{estilo.texto}</Text>
               </View>
               <View style={{ alignItems: 'flex-end', gap: 6 }}>
@@ -357,8 +361,8 @@ const styles = StyleSheet.create({
   detectado: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: 'rgba(251, 191, 36, 0.08)',
-    borderColor: 'rgba(251, 191, 36, 0.35)',
+    backgroundColor: colores.advertenciaFondo,
+    borderColor: colores.advertenciaBorde,
     borderWidth: 1,
     borderRadius: radios.grande,
     padding: 14,
@@ -373,19 +377,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colores.superficie,
-    borderRadius: 18,
+    borderRadius: radios.grande,
     padding: 14,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  icono: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  icono: { width: 44, height: 44, borderRadius: radios.chico, alignItems: 'center', justifyContent: 'center' },
   info: { flex: 1, marginLeft: 12, marginRight: 8 },
   nombre: { color: colores.texto, fontSize: 16, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
   estado: { fontSize: 12, fontWeight: '600', marginTop: 3 },
   monto: { color: colores.texto, fontSize: 15, fontWeight: '700' },
-  botonChico: { backgroundColor: colores.primario, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12 },
+  botonChico: { backgroundColor: colores.primario, borderRadius: radios.chico, paddingVertical: 6, paddingHorizontal: 12 },
   textoBotonChico: { color: colores.sobrePrimario, fontWeight: '700', fontSize: 14 },
   textoNo: { color: colores.textoSecundario, fontWeight: '600', fontSize: 14 },
   textoDeshacer: { color: colores.textoTenue, fontSize: 13, textDecorationLine: 'underline' },
@@ -397,13 +401,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: colores.primario,
-    borderRadius: 16,
+    borderRadius: radios.grande,
     padding: 16,
     marginTop: 8,
   },
   textoAgregar: { color: colores.primario, fontWeight: '600', fontSize: 16 },
   pista: { color: colores.textoTenue, fontSize: 13, marginTop: 14, lineHeight: 19 },
-  fondoModal: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', padding: 20 },
+  fondoModal: { flex: 1, backgroundColor: colores.velo, justifyContent: 'center', padding: 20 },
   cajaPago: { backgroundColor: colores.superficie, borderRadius: radios.grande, padding: 20, borderWidth: 1, borderColor: colores.borde },
   tituloPago: { color: colores.texto, fontSize: 20, fontWeight: '700' },
   ayudaPago: { color: colores.textoSecundario, fontSize: 13, marginTop: 8 },

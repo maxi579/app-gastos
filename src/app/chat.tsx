@@ -198,7 +198,7 @@ export default function Chat() {
       <View style={styles.barra}>
         <TextInput
           style={styles.input}
-          placeholder="Escribí tu pregunta..."
+          placeholder="Escribí tu pregunta…"
           value={texto}
           onChangeText={setTexto}
           multiline
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   sugerencias: { gap: 8 },
   sugerencia: { backgroundColor: colores.superficie, borderRadius: radios.medio, padding: 14, borderWidth: 1, borderColor: colores.borde },
   textoSugerencia: { color: colores.textoChip, fontSize: 15 },
-  burbuja: { borderRadius: 18, padding: 14, marginBottom: 10, maxWidth: '88%' },
+  burbuja: { borderRadius: radios.grande, padding: 14, marginBottom: 10, maxWidth: '88%' },
   burbujaUsuario: { backgroundColor: colores.primario, alignSelf: 'flex-end', borderBottomRightRadius: 6 },
   burbujaIA: { backgroundColor: colores.superficie, alignSelf: 'flex-start', borderBottomLeftRadius: 6, borderWidth: 1, borderColor: colores.borde },
   textoUsuario: { color: colores.sobrePrimario, fontSize: 16, lineHeight: 22 },
@@ -244,12 +244,12 @@ const styles = StyleSheet.create({
   },
   accionResuelta: { borderColor: colores.borde, opacity: 0.75 },
   accionFila: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  accionIcono: { width: 38, height: 38, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  accionIcono: { width: 38, height: 38, borderRadius: radios.chico, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   accionTitulo: { color: colores.texto, fontSize: 15, fontWeight: '700' },
   accionDetalle: { color: colores.textoChip, fontSize: 14, marginTop: 2, lineHeight: 19 },
   accionBotones: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 18, marginTop: 12 },
   cancelar: { color: colores.textoSecundario, fontSize: 15, fontWeight: '600' },
-  confirmar: { backgroundColor: colores.primario, borderRadius: 12, paddingVertical: 9, paddingHorizontal: 18, minWidth: 104, alignItems: 'center' },
+  confirmar: { backgroundColor: colores.primario, borderRadius: radios.medio, paddingVertical: 9, paddingHorizontal: 18, minWidth: 104, alignItems: 'center' },
   textoConfirmar: { color: colores.sobrePrimario, fontWeight: '700', fontSize: 15 },
   estado: { color: colores.textoTenue, fontSize: 13, fontWeight: '600', marginTop: 8, textAlign: 'right' },
   pensando: { flexDirection: 'row', alignItems: 'center', gap: 10 },

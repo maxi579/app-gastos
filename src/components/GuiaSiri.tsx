@@ -70,7 +70,7 @@ function Paso({ n, children }: { n: number; children: string }) {
 const styles = StyleSheet.create({
   caja: { backgroundColor: colores.superficie, borderRadius: radios.grande, borderWidth: 1, borderColor: colores.borde, padding: 14, marginBottom: 10 },
   encabezado: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  icono: { width: 40, height: 40, borderRadius: 12, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  icono: { width: 40, height: 40, borderRadius: radios.chico, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   titulo: { color: colores.texto, fontSize: 16, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
   pasos: { marginTop: 14, gap: 10 },

@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   },
   itemMarcado: { borderColor: colores.primario },
   itemCargado: { opacity: 0.75 },
-  icono: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  icono: { width: 34, height: 34, borderRadius: radios.chico, alignItems: 'center', justifyContent: 'center' },
   descripcion: { color: colores.texto, fontSize: 15, fontWeight: '600' },
   detalle: { color: colores.textoSecundario, fontSize: 13, marginTop: 2 },
   monto: { color: colores.texto, fontSize: 15, fontWeight: '700' },

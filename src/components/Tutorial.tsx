@@ -357,7 +357,7 @@ function Capa({ paso, numero, total, rect: enPantalla, onSiguiente, onSaltar }: 
 }
 
 const styles = StyleSheet.create({
-  sombra: { position: 'absolute', backgroundColor: 'rgba(3, 7, 18, 0.78)' },
+  sombra: { position: 'absolute', backgroundColor: colores.veloFuerte },
   marco: { position: 'absolute', borderRadius: radios.grande, borderWidth: 2, borderColor: colores.primario },
   globo: {
     position: 'absolute',

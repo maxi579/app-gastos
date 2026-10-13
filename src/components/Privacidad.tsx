@@ -107,7 +107,7 @@ export function PoliticaPrivacidad() {
 const styles = StyleSheet.create({
   resumen: { backgroundColor: colores.superficie, borderRadius: radios.grande, borderWidth: 1, borderColor: colores.borde, padding: 16, gap: 14 },
   filaResumen: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  icono: { width: 34, height: 34, borderRadius: 10, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  icono: { width: 34, height: 34, borderRadius: radios.chico, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   textoResumen: { flex: 1, color: colores.texto, fontSize: 15, lineHeight: 21, fontWeight: '600' },
   seccion: { marginTop: 28, gap: 10 },
   titulo: { color: colores.texto, fontSize: 18, fontWeight: 'bold' },

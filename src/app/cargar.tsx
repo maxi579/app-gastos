@@ -179,7 +179,7 @@ export default function Cargar() {
             </View>
           ) : (
             <>
-              <Text style={styles.resumenTitulo}>📸 ¿Tenés el ticket o el comprobante?</Text>
+              <Text style={styles.resumenTitulo}>¿Tenés el ticket o el comprobante?</Text>
               <Text style={styles.resumenTexto}>Sacale una foto o elegí la captura de Mercado Pago, y lo anoto yo.</Text>
               <View style={styles.botonesEscaner}>
                 <Pressable style={({ pressed }) => [styles.botonEscaner, pressed && { opacity: 0.7 }]} onPress={() => escanear('camara')}>
@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colores.borde,
   },
-  resumenIcono: { width: 44, height: 44, borderRadius: 14, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
+  resumenIcono: { width: 44, height: 44, borderRadius: radios.chico, backgroundColor: colores.primarioSuave, alignItems: 'center', justifyContent: 'center' },
   resumenTitulo: { color: colores.texto, fontSize: 16, fontWeight: '700' },
   resumenTexto: { color: colores.textoSecundario, fontSize: 14, marginTop: 2, lineHeight: 20 },
   escaner: {
@@ -330,8 +330,8 @@ const styles = StyleSheet.create({
   factura: {
     flexDirection: 'row',
     gap: 8,
-    backgroundColor: 'rgba(251, 191, 36, 0.08)',
-    borderColor: 'rgba(251, 191, 36, 0.35)',
+    backgroundColor: colores.advertenciaFondo,
+    borderColor: colores.advertenciaBorde,
     borderWidth: 1,
     borderRadius: radios.chico,
     padding: 12,
