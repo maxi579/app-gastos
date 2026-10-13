@@ -9,7 +9,7 @@ export async function leerRecibo(archivo: ArchivoRecibo, esDemo: boolean): Promi
     await new Promise((r) => setTimeout(r, 1200));
     const hoy = new Date();
     const periodo = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-01`;
-    return { periodo, empleador: 'Empresa de ejemplo', bruto: 2_050_000, neto: 1_620_000, moneda: 'ARS', aguinaldo: false };
+    return { periodo, desde: null, hasta: null, empleador: 'Empresa de ejemplo', bruto: 2_050_000, neto: 1_620_000, moneda: 'ARS', tipo: 'sueldo' };
   }
   const formulario = new FormData();
   if (archivo.file) formulario.append('archivo', archivo.file);

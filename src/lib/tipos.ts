@@ -142,12 +142,17 @@ export type Aporte = { id: string; meta_id: string; monto: number; fecha: string
 /** Lo que leyó la IA de un recibo de sueldo (el archivo no se guarda) */
 export type ReciboSueldo = {
   id: string;
-  /** Mes liquidado, 'AAAA-MM-01' */
+  /** Mes al que corresponde (el del último día liquidado), 'AAAA-MM-01' */
   periodo: string;
+  /** Período exacto liquidado, 'AAAA-MM-DD'. Quien cobra por quincena tiene dos recibos por mes. */
+  desde: string | null;
+  hasta: string | null;
   empleador: string;
   bruto: number | null;
   neto: number;
   moneda: 'ARS' | 'USD';
-  /** Recibo solo del aguinaldo: no cuenta como sueldo del mes */
-  aguinaldo: boolean;
+  /** Qué liquida. Solo sueldo y vacaciones son "el sueldo del mes"; el resto son pagos de una vez. */
+  tipo: TipoRecibo;
 };
+
+export type TipoRecibo = 'sueldo' | 'vacaciones' | 'aguinaldo' | 'ajuste' | 'final';

@@ -8,12 +8,13 @@ import { useDatos } from '../lib/contextoDatos';
 import { formatearMonto } from '../lib/finanzas';
 import { useIndicadores } from '../lib/indicadores';
 import { leerRecibo } from '../lib/leerRecibo';
-import { mismoRecibo, nombrePeriodo, sueldoActual, sueldoContraInflacion, type ReciboLeido } from '../lib/sueldos';
+import { mismoRecibo, NOMBRE_TIPO, nombrePeriodo, nombreRecibo, tipoDe, sueldoActual, sueldoContraInflacion, type ReciboLeido } from '../lib/sueldos';
 import type { ReciboSueldo } from '../lib/tipos';
 import { useAviso } from './Toast';
 import { confirmar, Texto as Text } from './ui';
 
 const porcentaje = (x: number) => `${Math.round(Math.abs(x) * 100)}%`;
+const conMayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice(1);
 
 /** Cargar recibos de sueldo: la IA los lee, el sueldo se actualiza solo y se compara contra la inflación */
 export default function RecibosSueldo({ onSueldo }: { onSueldo: (sueldo: number) => void }) {
@@ -72,7 +73,9 @@ export default function RecibosSueldo({ onSueldo }: { onSueldo: (sueldo: number)
       if (sueldo !== actual.neto) {
         await datos.guardarSueldo(actual.neto);
         onSueldo(actual.neto);
-        mensaje = `Tu sueldo quedó en ${formatearMonto(actual.neto)} (${nombrePeriodo(actual.periodo)}) ✓`;
+        mensaje = actual.estimado
+          ? `Con lo que cargaste de ${nombrePeriodo(actual.periodo)}, calculo que cobrás unos ${formatearMonto(actual.neto)} por mes. Cuando cargues el resto del mes, lo ajusto.`
+          : `Tu sueldo quedó en ${formatearMonto(actual.neto)} (${nombrePeriodo(actual.periodo)}) ✓`;
       } else mensaje = nuevos === 1 ? 'Recibo guardado ✓' : `${nuevos} recibos guardados ✓`;
     } else if (repetidos > 0 && errores.length === 0) mensaje = repetidos === 1 ? 'Ese recibo ya estaba cargado.' : 'Esos recibos ya estaban cargados.';
     if (mensaje) aviso(mensaje, nuevos > 0 ? undefined : 'info');
@@ -80,14 +83,17 @@ export default function RecibosSueldo({ onSueldo }: { onSueldo: (sueldo: number)
   }
 
   function borrar(recibo: ReciboSueldo) {
-    confirmar('Borrar recibo', `¿Borrar el recibo de ${nombrePeriodo(recibo.periodo)}?`, 'Borrar', async () => {
+    confirmar('Borrar recibo', `¿Borrar el recibo de ${nombreRecibo(recibo)}?`, 'Borrar', async () => {
       await datos.recibos.borrar(recibo.id).catch((e) => aviso((e as Error).message, 'error'));
       cargar();
     });
   }
 
   const comparacion = sueldoContraInflacion(recibos, indicadores.serieInflacion, indicadores.inflacionMensual);
-  const ordenados = [...recibos].sort((a, b) => b.periodo.localeCompare(a.periodo)).slice(0, 6);
+  // Del más nuevo al más viejo (las quincenas de un mismo mes, la segunda arriba)
+  const ordenados = [...recibos]
+    .sort((a, b) => b.periodo.localeCompare(a.periodo) || (b.desde ?? '').localeCompare(a.desde ?? ''))
+    .slice(0, 8);
 
   return (
     <View style={styles.contenedor}>
@@ -117,13 +123,13 @@ export default function RecibosSueldo({ onSueldo }: { onSueldo: (sueldo: number)
         <View key={r.id} style={styles.fila}>
           <View style={{ flex: 1 }}>
             <Text style={styles.periodo}>
-              {nombrePeriodo(r.periodo)}
-              {r.aguinaldo ? ' · aguinaldo' : ''}
+              {conMayuscula(nombreRecibo(r))}
+              {tipoDe(r) !== 'sueldo' ? ` · ${NOMBRE_TIPO[tipoDe(r)]}` : ''}
             </Text>
             {r.empleador !== '' && <Text style={styles.detalle}>{r.empleador}</Text>}
           </View>
           <Text style={styles.neto}>{formatearMonto(r.neto, r.moneda)}</Text>
-          <Pressable onPress={() => borrar(r)} hitSlop={10} accessibilityLabel={`Borrar recibo de ${nombrePeriodo(r.periodo)}`}>
+          <Pressable onPress={() => borrar(r)} hitSlop={10} accessibilityLabel={`Borrar recibo de ${nombreRecibo(r)}`}>
             <Ionicons name="close" size={18} color={colores.textoTenue} />
           </Pressable>
         </View>
@@ -149,6 +155,6 @@ const styles = StyleSheet.create({
   comparacion: { backgroundColor: colores.superficie, borderRadius: radios.grande, borderWidth: 1, borderColor: colores.primario, padding: 14 },
   textoComparacion: { color: colores.texto, fontSize: 15, lineHeight: 21 },
   fila: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 4 },
-  periodo: { color: colores.texto, fontSize: 15, fontWeight: '600', textTransform: 'capitalize' },
+  periodo: { color: colores.texto, fontSize: 15, fontWeight: '600' },
   neto: { color: colores.texto, fontSize: 15, fontWeight: '700' },
 });

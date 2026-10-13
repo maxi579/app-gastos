@@ -16,7 +16,7 @@ import { gastoUltimaSemana, presupuestoAutomatico, semanaInusual } from '../src/
 import { balanceEfectivo, compararConteo, saldoEsperado } from '../src/lib/efectivo';
 import { anotarDebitos, debitosParaAnotar, detectarRecurrentes, fijosDelMes, gastoDeFijo, pendienteDeFijos, totalMensualFijos, vencimientoDelMes } from '../src/lib/fijos';
 import { leerFecha } from '../src/lib/formato';
-import { mismoRecibo, nombrePeriodo, sueldoActual, sueldoContraInflacion, type ReciboLeido } from '../src/lib/sueldos';
+import { mismoRecibo, nombrePeriodo, nombreRecibo, sueldoActual, sueldoContraInflacion, sueldosPorMes, type ReciboLeido } from '../src/lib/sueldos';
 import { gastosDelRango, htmlDeGastos, rangoDePeriodo, totalesDe } from '../src/lib/exportar';
 import type { GastoConMedio } from '../src/lib/datos';
 import { accionesValidas, buscarPorNombre, describirAccion } from '../src/lib/accionesIA';
@@ -520,11 +520,13 @@ describe('acciones del asistente', () => {
 describe('recibos de sueldo', () => {
   const recibo = (periodo: string, neto: number, extra: Partial<ReciboLeido> = {}): ReciboLeido => ({
     periodo,
+    desde: null,
+    hasta: null,
     empleador: 'Acme',
     bruto: null,
     neto,
     moneda: 'ARS',
-    aguinaldo: false,
+    tipo: 'sueldo',
     ...extra,
   });
 
@@ -533,15 +535,59 @@ describe('recibos de sueldo', () => {
       recibo('2026-08-01', 1_000_000),
       recibo('2026-09-01', 1_100_000),
       recibo('2026-09-01', 300_000, { empleador: 'Freelance SRL' }),
-      recibo('2026-12-01', 550_000, { aguinaldo: true }),
+      recibo('2026-12-01', 550_000, { tipo: 'aguinaldo' }),
+      recibo('2026-09-01', 90_000, { tipo: 'ajuste' }),
     ];
-    assert.deepEqual(sueldoActual(recibos), { periodo: '2026-09-01', neto: 1_400_000 });
+    assert.deepEqual(sueldoActual(recibos), { periodo: '2026-09-01', neto: 1_400_000, estimado: false });
     assert.equal(sueldoActual([]), null);
   });
 
   it('reconoce un recibo repetido', () => {
-    assert.ok(mismoRecibo(recibo('2026-09-01', 1), recibo('2026-09-01', 2, { empleador: 'ACME' })));
-    assert.ok(!mismoRecibo(recibo('2026-09-01', 1), recibo('2026-09-01', 1, { aguinaldo: true })));
+    assert.ok(mismoRecibo(recibo('2026-09-01', 1), recibo('2026-09-01', 1, { empleador: 'ACME' })));
+    assert.ok(!mismoRecibo(recibo('2026-09-01', 1), recibo('2026-09-01', 1, { tipo: 'aguinaldo' })));
+  });
+
+  it('cobrar por quincena: dos recibos del mismo mes no son el mismo recibo, y se suman', () => {
+    const q = (desde: string, hasta: string, neto: number) => recibo(`${hasta.slice(0, 7)}-01`, neto, { desde, hasta });
+    const primera = q('2026-09-01', '2026-09-15', 600_000);
+    const segunda = q('2026-09-16', '2026-09-30', 600_000);
+    assert.ok(!mismoRecibo(primera, segunda));
+    assert.ok(mismoRecibo(primera, { ...primera }));
+    assert.equal(nombreRecibo(primera), '1ª quincena de septiembre 2026');
+    assert.equal(nombreRecibo(segunda), '2ª quincena de septiembre 2026');
+    assert.equal(nombreRecibo(recibo('2026-09-01', 1)), 'septiembre 2026');
+
+    // Septiembre completo
+    assert.deepEqual(sueldoActual([primera, segunda]), { periodo: '2026-09-01', neto: 1_200_000, estimado: false });
+    // Llegó la 1ª de octubre: el sueldo sigue siendo el de septiembre completo
+    const octubre = q('2026-10-01', '2026-10-15', 650_000);
+    assert.deepEqual(sueldoActual([primera, segunda, octubre]), { periodo: '2026-09-01', neto: 1_200_000, estimado: false });
+    // Solo una quincena cargada: se estima el mes entero
+    const solo = sueldoActual([octubre])!;
+    assert.equal(solo.estimado, true);
+    assert.equal(solo.neto, Math.round(650_000 / (15 / 31)));
+    assert.equal(sueldosPorMes([primera, segunda])[0].completo, true);
+  });
+
+  it('mes con vacaciones: el recibo de vacaciones y el del sueldo se suman; el aguinaldo no', () => {
+    const recibos = [
+      recibo('2026-01-01', 700_000, { desde: '2026-01-01', hasta: '2026-01-14', tipo: 'vacaciones' }),
+      recibo('2026-01-01', 650_000, { desde: '2026-01-15', hasta: '2026-01-31' }),
+      recibo('2026-01-01', 400_000, { tipo: 'aguinaldo' }),
+    ];
+    const [enero] = sueldosPorMes(recibos);
+    assert.equal(enero.completo, true);
+    assert.equal(enero.cobrado, 1_350_000);
+    assert.ok(!mismoRecibo(recibos[0], recibos[1]));
+  });
+
+  it('cobrar por semana: el mes se completa con las semanas', () => {
+    const s = (desde: string, hasta: string) => recibo('2026-09-01', 250_000, { desde, hasta });
+    const semanas = [s('2026-09-01', '2026-09-07'), s('2026-09-08', '2026-09-14'), s('2026-09-15', '2026-09-21'), s('2026-09-22', '2026-09-28')];
+    const [mes] = sueldosPorMes(semanas);
+    assert.equal(mes.completo, true);
+    assert.equal(mes.cobrado, 1_000_000);
+    assert.equal(nombreRecibo(semanas[1]), 'del 8 al 14 de septiembre 2026');
   });
 
   it('compara la suba del sueldo con la inflación de esos meses', () => {

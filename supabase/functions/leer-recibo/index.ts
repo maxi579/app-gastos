@@ -1,4 +1,6 @@
 // Lee un recibo de sueldo (PDF o foto) con Claude y devuelve el período, el empleador, el bruto y el neto.
+// El período es exacto (desde/hasta): hay quien cobra por quincena o por semana y tiene varios recibos por mes.
+// También se distingue el tipo: en un mismo mes puede haber sueldo, vacaciones, aguinaldo, ajustes...
 //
 // Desplegar:   npx supabase functions deploy leer-recibo
 // Clave de IA: la misma que leer-comprobante (ANTHROPIC_API_KEY en los secretos de Supabase)
@@ -10,18 +12,21 @@ import { claude, CORS, errorDeClaude, MODELO, RESPALDO, responder, textoDe, usua
 
 const TAMANIO_MAXIMO = 8 * 1024 * 1024;
 
+const TIPOS = ['sueldo', 'vacaciones', 'aguinaldo', 'ajuste', 'final'];
+
 const ESQUEMA = {
   type: 'object',
   additionalProperties: false,
-  required: ['es_recibo', 'empleador', 'periodo', 'bruto', 'neto', 'moneda', 'aguinaldo'],
+  required: ['es_recibo', 'empleador', 'desde', 'hasta', 'bruto', 'neto', 'moneda', 'tipo'],
   properties: {
     es_recibo: { type: 'boolean', description: 'false si no es un recibo de sueldo' },
     empleador: { type: 'string', description: 'Nombre corto de la empresa empleadora: "Techint", "Banco Nación"' },
-    periodo: { type: 'string', description: 'Mes liquidado, AAAA-MM' },
+    desde: { type: 'string', description: 'Primer día del período liquidado, AAAA-MM-DD' },
+    hasta: { type: 'string', description: 'Último día del período liquidado, AAAA-MM-DD' },
     bruto: { type: 'number', description: 'Total de haberes (remuneración bruta), 0 si no figura' },
     neto: { type: 'number', description: 'Neto a cobrar' },
     moneda: { type: 'string', enum: ['ARS', 'USD'] },
-    aguinaldo: { type: 'boolean', description: 'true si el recibo es solo del aguinaldo (SAC)' },
+    tipo: { type: 'string', enum: TIPOS, description: 'Qué liquida el recibo' },
   },
 };
 
@@ -29,14 +34,24 @@ const INSTRUCCIONES = `Este archivo es (probablemente) un recibo de sueldo argen
 
 Extraé:
 - empleador: la empresa, corto y como lo diría una persona (no la razón social completa con S.A.).
-- periodo: el mes liquidado ("Período: 09/2026", "Septiembre 2026"), no la fecha de pago. Formato AAAA-MM.
+- desde y hasta: el período liquidado, no la fecha de pago. Formato AAAA-MM-DD.
+  - Sueldo mensual ("Período: 09/2026", "Septiembre 2026"): del primer al último día del mes (2026-09-01 a 2026-09-30).
+  - Quincena ("1ra quincena 09/2026", "01/09 al 15/09"): del 1 al 15; la segunda, del 16 al último día del mes.
+  - Semana o cualquier otro período: las fechas que figuren.
 - bruto: el total de haberes o remuneración bruta.
 - neto: el neto a cobrar ("Neto a cobrar", "Total neto", "Son pesos..."). Los montos argentinos usan punto para miles y coma para decimales ("$ 1.234.567,89" es 1234567.89).
-- aguinaldo: true solo si el recibo es únicamente del SAC / aguinaldo. Si es el sueldo del mes y además incluye SAC, false.
+- tipo: qué liquida el recibo. En un mismo mes puede haber varios.
+  - "sueldo": el sueldo del período (mes, quincena o semana), aunque además traiga horas extra, premios o el SAC.
+  - "vacaciones": la liquidación de vacaciones pagada aparte (por adelantado). Las fechas son las de los días de vacaciones.
+  - "aguinaldo": solo el SAC / medio aguinaldo.
+  - "ajuste": retroactivos, diferencias por paritaria, liquidaciones complementarias de meses anteriores.
+  - "final": liquidación final por renuncia o despido.
 
-Si no es un recibo de sueldo, poné es_recibo en false y el resto vacío (montos 0, periodo "").`;
+Si no es un recibo de sueldo, poné es_recibo en false y el resto vacío (montos 0, fechas "").`;
 
-type Recibo = { es_recibo: boolean; empleador: string; periodo: string; bruto: number; neto: number; moneda: 'ARS' | 'USD'; aguinaldo: boolean };
+type Recibo = { es_recibo: boolean; empleador: string; desde: string; hasta: string; bruto: number; neto: number; moneda: 'ARS' | 'USD'; tipo: string };
+
+const esFecha = (f: string) => /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(f);
 
 // Tipo de archivo según sus primeros bytes (no confiamos en lo que dice el celular)
 function tipoDeArchivo(b: Uint8Array) {
@@ -85,17 +100,21 @@ Deno.serve(async (pedido) => {
     if (!texto) return responder({ error: 'No pude leer el recibo.' }, 502);
 
     const r = JSON.parse(texto) as Recibo;
-    const periodo = /^\d{4}-(0[1-9]|1[0-2])$/.test(r.periodo) ? `${r.periodo}-01` : null;
     if (!r.es_recibo) return responder({ error: 'No parece un recibo de sueldo.' }, 422);
-    if (!periodo || !(r.neto > 0)) return responder({ error: 'No encontré el mes o el neto en el recibo.' }, 422);
+    if (!esFecha(r.desde) || !esFecha(r.hasta) || r.hasta < r.desde || !(r.neto > 0)) {
+      return responder({ error: 'No encontré el período o el neto en el recibo.' }, 422);
+    }
     return responder({
       recibo: {
-        periodo,
+        // El mes al que corresponde: el del último día liquidado
+        periodo: `${r.hasta.slice(0, 7)}-01`,
+        desde: r.desde,
+        hasta: r.hasta,
         empleador: r.empleador.trim(),
         bruto: Number.isFinite(r.bruto) && r.bruto > 0 ? r.bruto : null,
         neto: r.neto,
         moneda: r.moneda === 'USD' ? 'USD' : 'ARS',
-        aguinaldo: r.aguinaldo === true,
+        tipo: TIPOS.includes(r.tipo) ? r.tipo : 'sueldo',
       },
     });
   } catch (error) {
