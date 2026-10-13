@@ -1,6 +1,6 @@
 ---
 name: sistema-diseno
-description: Sistema de diseño de Sorted (app-gastos): colores, tipografía Plus Jakarta Sans, espaciado, radios y componentes de ui.tsx. Usala SIEMPRE antes de crear o modificar cualquier pantalla o componente en src/app o src/components, aunque el cambio parezca chico (un color, un texto, un botón).
+description: "Sistema de diseño de Sorted (app-gastos): colores, tipografía Plus Jakarta Sans, espaciado, radios y componentes de ui.tsx. Usala SIEMPRE antes de crear o modificar cualquier pantalla o componente en src/app o src/components, aunque el cambio parezca chico (un color, un texto, un botón)."
 ---
 
 # Sistema de diseño — Sorted
