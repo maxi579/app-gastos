@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
 import { useBloqueo } from '../components/Bloqueo';
 import FormularioMedioPago from '../components/FormularioMedioPago';
+import RecibosSueldo from '../components/RecibosSueldo';
 import { useAviso } from '../components/Toast';
 import { confirmar, Encabezado, Entrada as TextInput, Texto as Text } from '../components/ui';
 import { colores, radios } from '../constants/tema';
@@ -186,6 +187,7 @@ export default function Ajustes() {
             <Text style={styles.textoBotonSueldo}>Guardar</Text>
           </Pressable>
         </View>
+        <RecibosSueldo onSueldo={(sueldo) => setSueldoTexto(montoATexto(sueldo))} />
       </Objetivo>
 
       <Objetivo id="ajustes-tarjetas">

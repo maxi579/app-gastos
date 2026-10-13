@@ -25,6 +25,7 @@ const SECCIONES: { titulo: string; puntos: string[] }[] = [
       'Si entrás con mail y contraseña, la contraseña se guarda cifrada de una forma que nadie puede leer, ni siquiera nosotros.',
       'Lo que anotás: gastos, cuotas, fijos, efectivo, ahorros, activos y tu sueldo.',
       'De tus tarjetas, solo el nombre que les pongas, el banco y los días de cierre y vencimiento. Nunca el número.',
+      'De tus recibos de sueldo, solo el mes, la empresa y los montos. El archivo no se guarda.',
       'Cuántos mensajes le mandaste al asistente cada día, para el límite diario.',
       'Si activás los avisos, un código para poder mandarte notificaciones al celular.',
     ],
@@ -49,9 +50,9 @@ const SECCIONES: { titulo: string; puntos: string[] }[] = [
   {
     titulo: 'Inteligencia artificial',
     puntos: [
-      'Cuando usás el asistente o escaneás un ticket, mandamos lo necesario para responderte a Claude, la IA de Anthropic: tu mensaje, un resumen de tus gastos o la foto del ticket.',
+      'Cuando usás el asistente, escaneás un ticket o cargás un recibo de sueldo, mandamos lo necesario a Claude, la IA de Anthropic: tu mensaje, un resumen de tus gastos o el archivo.',
       'Anthropic no usa estos datos para entrenar su IA.',
-      'Las fotos de los tickets no se guardan: se leen y se descartan.',
+      'Las fotos de los tickets y los recibos no se guardan: se leen y se descartan.',
     ],
   },
   {

@@ -138,3 +138,16 @@ export type Meta = {
 
 /** Plata que se separó para una meta (negativo = se sacó) */
 export type Aporte = { id: string; meta_id: string; monto: number; fecha: string; automatico: boolean };
+
+/** Lo que leyó la IA de un recibo de sueldo (el archivo no se guarda) */
+export type ReciboSueldo = {
+  id: string;
+  /** Mes liquidado, 'AAAA-MM-01' */
+  periodo: string;
+  empleador: string;
+  bruto: number | null;
+  neto: number;
+  moneda: 'ARS' | 'USD';
+  /** Recibo solo del aguinaldo: no cuenta como sueldo del mes */
+  aguinaldo: boolean;
+};

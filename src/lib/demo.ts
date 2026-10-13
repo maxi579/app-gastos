@@ -213,6 +213,7 @@ export function crearFuenteDemo(alSalir: () => void): FuenteDatos {
     sugerencias: coleccionDemo(crearSugerencias(), 'sugerencia'),
     metas: coleccionDemo(crearMetas(), 'meta'),
     aportes: coleccionDemo(crearAportes(), 'aporte'),
+    recibos: coleccionDemo([], 'recibo'),
     conteos: {
       ...coleccionDemo(conteos, 'conteo'),
       async crear(fila) {

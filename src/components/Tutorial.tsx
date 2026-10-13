@@ -134,7 +134,7 @@ const RECORRIDOS = {
     AYUDA,
   ],
   ajustes: [
-    { objetivo: 'ajustes-sueldo', titulo: 'Tu sueldo', texto: 'Con tu sueldo te digo qué parte del mes ya está ocupada. Solo lo ves vos.' },
+    { objetivo: 'ajustes-sueldo', titulo: 'Tu sueldo', texto: 'Con tu sueldo te digo qué parte del mes ya está ocupada. Si cargás tus recibos, lo actualizo solo y te digo si le ganó a la inflación.' },
     { objetivo: 'ajustes-tarjetas', titulo: 'Tus tarjetas', texto: 'Cargá el cierre y el vencimiento de cada tarjeta: así sé en qué mes cae cada cuota y cuál conviene usar hoy.' },
     { titulo: 'Tono y avisos', texto: 'Más abajo elegís cómo te habla el asistente y qué recordatorios querés.' },
     AYUDA,

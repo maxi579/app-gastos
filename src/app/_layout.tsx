@@ -138,6 +138,7 @@ export default function Layout() {
           <Tabs.Screen name="revisar" options={{ href: null, title: 'Pagos para revisar' }} />
           <Tabs.Screen name="automatico" options={{ href: null, title: 'Anotar sin esfuerzo' }} />
           <Tabs.Screen name="privacidad" options={{ href: null, title: 'Privacidad' }} />
+          <Tabs.Screen name="exportar" options={{ href: null, title: 'Exportar a PDF' }} />
         </Tabs>
         </ProveedorTutorial>
       </ProveedorDatos>

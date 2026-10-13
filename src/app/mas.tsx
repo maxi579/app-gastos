@@ -18,6 +18,7 @@ const GRUPOS: { titulo: string; opciones: Opcion[] }[] = [
       { icono: 'calculator', titulo: '¿Cuánto me rinde?', detalle: 'Plazo fijo, billeteras e inflación', destino: '/rendimiento' },
       { icono: 'trending-up', titulo: 'Activos', detalle: 'Lo que tenés y cuánto vale hoy', destino: '/activos' },
       { icono: 'bag-check', titulo: '¿Lo compro?', detalle: 'Te digo si te conviene antes de comprar', destino: '/comprar' },
+      { icono: 'download', titulo: 'Exportar a PDF', detalle: 'Tus gastos, listos para guardar o compartir', destino: '/exportar' },
     ],
   },
   {

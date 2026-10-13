@@ -16,6 +16,9 @@ import { gastoUltimaSemana, presupuestoAutomatico, semanaInusual } from '../src/
 import { balanceEfectivo, compararConteo, saldoEsperado } from '../src/lib/efectivo';
 import { anotarDebitos, debitosParaAnotar, detectarRecurrentes, fijosDelMes, gastoDeFijo, pendienteDeFijos, totalMensualFijos, vencimientoDelMes } from '../src/lib/fijos';
 import { leerFecha } from '../src/lib/formato';
+import { mismoRecibo, nombrePeriodo, sueldoActual, sueldoContraInflacion, type ReciboLeido } from '../src/lib/sueldos';
+import { gastosDelRango, htmlDeGastos, rangoDePeriodo, totalesDe } from '../src/lib/exportar';
+import type { GastoConMedio } from '../src/lib/datos';
 import { accionesValidas, buscarPorNombre, describirAccion } from '../src/lib/accionesIA';
 import {
   leerBancos,
@@ -511,5 +514,97 @@ describe('acciones del asistente', () => {
     assert.equal(fijo.titulo, 'Agregar suscripción');
     assert.match(fijo.detalle, /monto variable/);
     assert.equal(describirAccion({ tipo: 'separar_ahorro', meta: 'Viaje', monto: -1000 }).titulo, 'Sacar de tu ahorro');
+  });
+});
+
+describe('recibos de sueldo', () => {
+  const recibo = (periodo: string, neto: number, extra: Partial<ReciboLeido> = {}): ReciboLeido => ({
+    periodo,
+    empleador: 'Acme',
+    bruto: null,
+    neto,
+    moneda: 'ARS',
+    aguinaldo: false,
+    ...extra,
+  });
+
+  it('el sueldo es el neto del último mes, sumando empleadores y sin contar el aguinaldo', () => {
+    const recibos = [
+      recibo('2026-08-01', 1_000_000),
+      recibo('2026-09-01', 1_100_000),
+      recibo('2026-09-01', 300_000, { empleador: 'Freelance SRL' }),
+      recibo('2026-12-01', 550_000, { aguinaldo: true }),
+    ];
+    assert.deepEqual(sueldoActual(recibos), { periodo: '2026-09-01', neto: 1_400_000 });
+    assert.equal(sueldoActual([]), null);
+  });
+
+  it('reconoce un recibo repetido', () => {
+    assert.ok(mismoRecibo(recibo('2026-09-01', 1), recibo('2026-09-01', 2, { empleador: 'ACME' })));
+    assert.ok(!mismoRecibo(recibo('2026-09-01', 1), recibo('2026-09-01', 1, { aguinaldo: true })));
+  });
+
+  it('compara la suba del sueldo con la inflación de esos meses', () => {
+    const serie = [
+      { fecha: '2026-08-31', valor: 2 },
+      { fecha: '2026-09-30', valor: 3 },
+    ];
+    const r = sueldoContraInflacion([recibo('2026-07-01', 1_000_000), recibo('2026-09-01', 1_100_000)], serie, 0.02)!;
+    assert.equal(r.desde, '2026-07-01');
+    assert.ok(Math.abs(r.suba - 0.1) < 1e-9);
+    assert.ok(Math.abs(r.inflacion - (1.02 * 1.03 - 1)) < 1e-9);
+    assert.ok(r.real > 0);
+    assert.equal(sueldoContraInflacion([recibo('2026-07-01', 1)], serie, 0.02), null);
+    assert.equal(nombrePeriodo('2026-09-01'), 'septiembre 2026');
+  });
+});
+
+describe('exportar a PDF', () => {
+  const gasto = (fecha: string, monto: number, extra: Partial<GastoConMedio> = {}): GastoConMedio => ({
+    id: fecha + monto,
+    descripcion: 'Algo',
+    categoria: 'Supermercado',
+    monto_total: monto,
+    moneda: 'ARS',
+    cantidad_cuotas: 1,
+    primer_mes_cuota: null,
+    fecha_compra: fecha,
+    tarjeta_id: null,
+    tarjetas: null,
+    ...extra,
+  });
+
+  it('arma los rangos de cada período', () => {
+    const hoy = new Date(2026, 9, 12);
+    assert.deepEqual(rangoDePeriodo('este-mes', hoy), { desde: '2026-10-01', hasta: '2026-10-12', titulo: 'octubre 2026' });
+    assert.deepEqual(rangoDePeriodo('mes-pasado', hoy), { desde: '2026-09-01', hasta: '2026-09-30', titulo: 'septiembre 2026' });
+    assert.equal(rangoDePeriodo('mes-pasado', new Date(2026, 0, 5)).titulo, 'diciembre 2025');
+    assert.equal(rangoDePeriodo('todo', hoy).desde, null);
+  });
+
+  it('filtra por fecha y suma por moneda y categoría', () => {
+    const gastos = [
+      gasto('2026-09-30', 5_000),
+      gasto('2026-10-01', 10_000),
+      gasto('2026-10-05', 30_000, { categoria: 'Compras' }),
+      gasto('2026-10-06', 20, { moneda: 'USD' }),
+    ];
+    const elegidos = gastosDelRango(gastos, rangoDePeriodo('este-mes', new Date(2026, 9, 12)));
+    assert.deepEqual(elegidos.map((g) => g.fecha_compra), ['2026-10-06', '2026-10-05', '2026-10-01']);
+    const totales = totalesDe(elegidos);
+    assert.equal(totales.pesos, 40_000);
+    assert.equal(totales.dolares, 20);
+    assert.deepEqual(totales.categorias.map((c) => c.categoria), ['Compras', 'Supermercado']);
+  });
+
+  it('escapa lo que escribió la persona', () => {
+    const html = htmlDeGastos({
+      nombre: 'Max',
+      rango: rangoDePeriodo('todo', new Date(2026, 9, 12)),
+      gastos: [gasto('2026-10-01', 100, { descripcion: '<script>alert(1)</script>' })],
+      generado: new Date(2026, 9, 12),
+    });
+    assert.ok(!html.includes('<script>alert'));
+    assert.ok(html.includes('&lt;script&gt;'));
   });
 });
